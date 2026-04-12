@@ -11,6 +11,8 @@ export function Finances() {
   const [members, setMembers] = useState<Member[]>([]);
   const [dailyFine, setDailyFine] = useState<number>(0);
   const [monthlyFee, setMonthlyFee] = useState<number>(0);
+  const [monthlyTarget, setMonthlyTarget] = useState<number>(0);
+  const [foundationDate, setFoundationDate] = useState<string>('');
   const [isSavingFine, setIsSavingFine] = useState(false);
 
   useEffect(() => {
@@ -19,6 +21,8 @@ export function Finances() {
       if (docSnap.exists()) {
         setDailyFine(docSnap.data().dailyFineAmount || 0);
         setMonthlyFee(docSnap.data().monthlyFeeAmount || 0);
+        setMonthlyTarget(docSnap.data().monthlyTarget || 0);
+        setFoundationDate(docSnap.data().foundationDate || '');
       }
     });
 
@@ -44,7 +48,9 @@ export function Finances() {
     try {
       await setDoc(doc(db, 'settings', 'general'), { 
         dailyFineAmount: dailyFine,
-        monthlyFeeAmount: monthlyFee
+        monthlyFeeAmount: monthlyFee,
+        monthlyTarget: monthlyTarget,
+        foundationDate: foundationDate
       }, { merge: true });
       alert('Settings updated successfully!');
     } catch (error) {
@@ -137,7 +143,7 @@ export function Finances() {
       </div>
 
       {/* Fine Configuration Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
@@ -183,6 +189,50 @@ export function Finances() {
                 className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+              <span className="font-bold">৳</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Monthly Target</h3>
+              <p className="text-sm text-slate-500">Set the total collection target.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
+              <input 
+                type="number" 
+                min="0"
+                value={monthlyTarget}
+                onChange={(e) => setMonthlyTarget(Number(e.target.value))}
+                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center">
+              <Settings size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Foundation Date</h3>
+              <p className="text-sm text-slate-500">Set the organization's start date.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input 
+              type="date" 
+              value={foundationDate}
+              onChange={(e) => setFoundationDate(e.target.value)}
+              className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+            />
           </div>
         </div>
       </div>

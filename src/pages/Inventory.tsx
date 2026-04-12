@@ -1,28 +1,58 @@
-import React, { useState } from 'react';
-import { mockInventory } from '../lib/mockData';
+import React, { useState, useEffect } from 'react';
 import { Archive, CheckCircle2, AlertCircle, X, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, query, onSnapshot, addDoc } from 'firebase/firestore';
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  status: 'Available' | 'In Use' | 'Archived';
+  assignedTo?: string;
+}
 
 export function Inventory() {
-  const [inventory, setInventory] = useState(mockInventory);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', description: '', status: 'Available' as const });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddItem = (e: React.FormEvent) => {
+  useEffect(() => {
+    const q = query(collection(db, 'inventory'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items: InventoryItem[] = [];
+      snapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() } as InventoryItem);
+      });
+      setInventory(items);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'inventory');
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItem.name) return;
     
-    setInventory([
-      ...inventory,
-      {
-        id: `INV-${Date.now()}`,
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, 'inventory'), {
         name: newItem.name,
         description: newItem.description,
         status: newItem.status,
-      }
-    ]);
-    setNewItem({ name: '', description: '', status: 'Available' });
-    setShowAddModal(false);
+      });
+      setNewItem({ name: '', description: '', status: 'Available' });
+      setShowAddModal(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'inventory');
+    }
+    setIsSubmitting(false);
   };
 
   return (
@@ -89,18 +119,22 @@ export function Inventory() {
               </div>
               <button 
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors mt-6"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors mt-6 disabled:opacity-50"
               >
-                Save Item
+                {isSubmitting ? 'Saving...' : 'Save Item'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {inventory.map((item) => (
-          <div key={item.id} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col h-full">
+      {loading ? (
+        <div className="p-8 text-center text-slate-500">Loading inventory...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {inventory.map((item) => (
+            <div key={item.id} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col h-full">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center">
                 <Archive size={24} />
@@ -128,6 +162,7 @@ export function Inventory() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

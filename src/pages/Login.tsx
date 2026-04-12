@@ -126,7 +126,7 @@ export function Login() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      placeholder="Alice Johnson"
+                      placeholder="Enter your full name"
                     />
                   </div>
                 </div>
@@ -140,7 +140,7 @@ export function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      placeholder="alice@example.com"
+                      placeholder="Enter your email address"
                     />
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export function Login() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      placeholder="+1 234 567 8900"
+                      placeholder="Enter your phone number"
                     />
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export function Login() {
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                    placeholder="alice@example.com or YO-001"
+                    placeholder="Enter your email or member ID"
                   />
                 </div>
               </div>
