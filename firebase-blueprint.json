@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A member of the Yield Organization.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "memberId": { "type": "string", "description": "Yield Organization Member ID (e.g., YO-001)" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["President", "Secretary", "Treasurer", "Member"] },
+        "joinDate": { "type": "string", "format": "date" },
+        "contact": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["uid", "memberId", "name", "role", "status"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A monthly payment record for a member.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the member" },
+        "memberId": { "type": "string" },
+        "month": { "type": "string", "description": "YYYY-MM format" },
+        "amountDue": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "paidDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Late"] },
+        "fine": { "type": "number" }
+      },
+      "required": ["userId", "memberId", "month", "amountDue", "amountPaid", "dueDate", "status", "fine"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores member profiles."
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Stores payment records."
+    }
+  }
+}

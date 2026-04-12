@@ -1,0 +1,133 @@
+import React from 'react';
+import { LayoutDashboard, Users, DollarSign, Scale, Archive, Menu, X, LogOut } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useAuth } from '../contexts/AuthContext';
+
+interface LayoutProps {
+  children: React.ReactNode;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
+
+export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const { userProfile } = useAuth();
+
+  // If user is just a member, they only see their dashboard
+  const isStandardMember = userProfile?.role === 'Member';
+
+  const navItems = isStandardMember ? [
+    { id: 'member-dashboard', label: 'My Dashboard', icon: LayoutDashboard },
+    { id: 'governance', label: 'Governance', icon: Scale },
+  ] : [
+    { id: 'dashboard', label: 'Org Dashboard', icon: LayoutDashboard },
+    { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
+    { id: 'members', label: 'Member Management', icon: Users },
+    { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
+    { id: 'governance', label: 'Governance', icon: Scale },
+    { id: 'inventory', label: 'Inventory & Tools', icon: Archive },
+  ];
+
+  const handleLogout = () => {
+    signOut(auth);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-emerald-900 text-white p-4 flex items-center justify-between sticky top-0 z-20">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-white">
+            YO
+          </div>
+          <span className="font-semibold text-lg">Yield Org</span>
+        </div>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Sidebar */}
+      <AnimatePresence>
+        {(isMobileMenuOpen || window.innerWidth >= 768) && (
+          <motion.aside
+            initial={{ x: -300 }}
+            animate={{ x: 0 }}
+            exit={{ x: -300 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+            className={cn(
+              "fixed md:sticky top-0 left-0 h-screen w-64 bg-emerald-900 text-slate-300 flex flex-col z-10",
+              isMobileMenuOpen ? "block" : "hidden md:flex"
+            )}
+          >
+            <div className="p-6 hidden md:flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center font-bold text-white text-xl shadow-lg shadow-emerald-500/20">
+                YO
+              </div>
+              <div>
+                <h1 className="font-bold text-white text-lg leading-tight">Yield</h1>
+                <p className="text-emerald-400 text-xs font-medium tracking-wider uppercase">Organization</p>
+              </div>
+            </div>
+
+            <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium",
+                      isActive
+                        ? "bg-emerald-800 text-white shadow-sm"
+                        : "hover:bg-emerald-800/50 hover:text-white"
+                    )}
+                  >
+                    <Icon size={18} className={cn(isActive ? "text-emerald-400" : "text-slate-400")} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="p-4 m-4 bg-emerald-800/50 rounded-xl border border-emerald-700/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="truncate pr-2">
+                  <p className="text-sm font-medium text-white truncate">{userProfile?.name}</p>
+                  <p className="text-xs text-emerald-300 truncate">{userProfile?.memberId} • {userProfile?.role}</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-900/50 hover:bg-emerald-700 text-emerald-100 py-2 rounded-lg text-sm transition-colors"
+              >
+                <LogOut size={16} />
+                Sign Out
+              </button>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content */}
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-7xl mx-auto">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {children}
+        </motion.div>
+      </main>
+    </div>
+  );
+}

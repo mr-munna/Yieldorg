@@ -1,0 +1,87 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (request.auth.token.email.matches('^bijoy\\.mm112.*@gmail\\.com$') || request.auth.token.email == 'admin@yieldorg.com');
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'memberId', 'name', 'email', 'phone', 'role', 'joinDate', 'contact', 'status']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             (!('memberId' in data) || data.memberId == null || (data.memberId is string && data.memberId.size() < 20)) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.size() > 0 &&
+             data.phone is string && data.phone.size() > 0 &&
+             data.role in ['President', 'Secretary', 'Treasurer', 'Member', 'Admin'] &&
+             data.status in ['Active', 'Inactive', 'Pending'] &&
+             (!('joinDate' in data) || (data.joinDate is string && data.joinDate.size() < 20)) &&
+             (!('contact' in data) || (data.contact is string && data.contact.size() < 100));
+    }
+
+    function isValidPayment(data) {
+      return hasOnlyAllowedFields(['userId', 'memberId', 'month', 'amountDue', 'amountPaid', 'dueDate', 'paidDate', 'status', 'fine', 'paymentMethod', 'transactionId']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.memberId is string && data.memberId.size() > 0 && data.memberId.size() < 20 &&
+             data.month is string && data.month.size() > 0 && data.month.size() < 10 &&
+             data.amountDue is number && data.amountDue >= 0 &&
+             data.amountPaid is number && data.amountPaid >= 0 &&
+             data.dueDate is string && data.dueDate.size() > 0 && data.dueDate.size() < 20 &&
+             data.status in ['Paid', 'Pending', 'Late'] &&
+             data.fine is number && data.fine >= 0 &&
+             (!('paidDate' in data) || (data.paidDate is string && data.paidDate.size() < 20)) &&
+             (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() < 50)) &&
+             (!('transactionId' in data) || (data.transactionId is string && data.transactionId.size() < 100));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() && request.resource.data.status == 'Pending';
+      allow update: if isAdmin() || (isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status);
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin()) && isValidPayment(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidPayment(request.resource.data);
+    }
+  }
+}
