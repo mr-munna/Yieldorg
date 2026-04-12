@@ -11,6 +11,7 @@ export function Members() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [roleModalMember, setRoleModalMember] = useState<Member | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'users'));
@@ -73,6 +74,17 @@ export function Members() {
         status: currentStatus === 'Active' ? 'Inactive' : 'Active'
       });
       setActionMenuId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        role: newRole
+      });
+      setRoleModalMember(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
@@ -245,6 +257,15 @@ export function Members() {
                     {actionMenuId === member.id && (
                       <div className="absolute right-8 top-10 w-40 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10">
                         <button 
+                          onClick={() => {
+                            setRoleModalMember(member);
+                            setActionMenuId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                        >
+                          Change Role
+                        </button>
+                        <button 
                           onClick={() => toggleStatus(member.id, member.status)}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
                         >
@@ -266,6 +287,47 @@ export function Members() {
           </table>
         </div>
       </div>
+
+      {roleModalMember && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative">
+            <button 
+              onClick={() => setRoleModalMember(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Change Role</h3>
+            <p className="text-slate-600 mb-6 text-sm">
+              Select a new role for <span className="font-medium text-slate-900">{roleModalMember.name}</span>.
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              {['Member', 'Admin', 'President', 'Secretary', 'Treasurer'].map((role) => (
+                <button
+                  key={role}
+                  onClick={() => handleRoleChange(roleModalMember.id, role)}
+                  className={cn(
+                    "w-full text-left px-4 py-3 rounded-xl border transition-all",
+                    roleModalMember.role === role 
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-medium" 
+                      : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700"
+                  )}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              onClick={() => setRoleModalMember(null)}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2.5 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

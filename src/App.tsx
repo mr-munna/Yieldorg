@@ -33,7 +33,7 @@ function AppContent() {
     return <Login />;
   }
 
-  if (userProfile?.status === 'Pending' && !currentUser?.email?.startsWith('bijoy.mm112') && currentUser?.email !== 'admin@yieldorg.com') {
+  if (userProfile?.status === 'Pending' && !currentUser?.email?.startsWith('bijoy.mm112') && currentUser?.email !== 'admin@yieldorg.com' && currentUser?.email !== 'mrmunna774@gmail.com') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8 text-center">

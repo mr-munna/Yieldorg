@@ -10,6 +10,7 @@ export function Finances() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [dailyFine, setDailyFine] = useState<number>(0);
+  const [monthlyFee, setMonthlyFee] = useState<number>(0);
   const [isSavingFine, setIsSavingFine] = useState(false);
 
   useEffect(() => {
@@ -17,6 +18,7 @@ export function Finances() {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
       if (docSnap.exists()) {
         setDailyFine(docSnap.data().dailyFineAmount || 0);
+        setMonthlyFee(docSnap.data().monthlyFeeAmount || 0);
       }
     });
 
@@ -37,14 +39,17 @@ export function Finances() {
     return () => { unsubSettings(); unsubMembers(); unsubPayments(); };
   }, []);
 
-  const handleSaveFine = async () => {
+  const handleSaveSettings = async () => {
     setIsSavingFine(true);
     try {
-      await setDoc(doc(db, 'settings', 'general'), { dailyFineAmount: dailyFine }, { merge: true });
-      alert('Daily fine updated successfully!');
+      await setDoc(doc(db, 'settings', 'general'), { 
+        dailyFineAmount: dailyFine,
+        monthlyFeeAmount: monthlyFee
+      }, { merge: true });
+      alert('Settings updated successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/general');
-      alert('Failed to update fine.');
+      alert('Failed to update settings.');
     }
     setIsSavingFine(false);
   };
@@ -132,36 +137,65 @@ export function Finances() {
       </div>
 
       {/* Fine Configuration Section */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
-            <Settings size={20} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
+              <span className="font-bold">৳</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Monthly Fee Setup</h3>
+              <p className="text-sm text-slate-500">Set the base monthly fee for members.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-slate-900">Daily Late Fine Setup</h3>
-            <p className="text-sm text-slate-500">Set the fine amount added per day for overdue payments.</p>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
+              <input 
+                type="number" 
+                min="0"
+                value={monthlyFee}
+                onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
-            <input 
-              type="number" 
-              min="0"
-              value={dailyFine}
-              onChange={(e) => setDailyFine(Number(e.target.value))}
-              className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
+              <Settings size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Daily Late Fine Setup</h3>
+              <p className="text-sm text-slate-500">Set the fine amount added per day.</p>
+            </div>
           </div>
-          <button 
-            onClick={handleSaveFine}
-            disabled={isSavingFine}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <Save size={18} />
-            {isSavingFine ? 'Saving...' : 'Save'}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
+              <input 
+                type="number" 
+                min="0"
+                value={dailyFine}
+                onChange={(e) => setDailyFine(Number(e.target.value))}
+                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button 
+          onClick={handleSaveSettings}
+          disabled={isSavingFine}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+        >
+          <Save size={18} />
+          {isSavingFine ? 'Saving Settings...' : 'Save Settings'}
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">

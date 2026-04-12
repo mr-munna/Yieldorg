@@ -11,6 +11,7 @@ export function MemberDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [dailyFine, setDailyFine] = useState(0);
+  const [monthlyFee, setMonthlyFee] = useState(0);
 
   // Pay Modal State
   const [showPayModal, setShowPayModal] = useState(false);
@@ -23,6 +24,7 @@ export function MemberDashboard() {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
       if (docSnap.exists()) {
         setDailyFine(docSnap.data().dailyFineAmount || 0);
+        setMonthlyFee(docSnap.data().monthlyFeeAmount || 0);
       }
     });
     return unsubSettings;
@@ -71,20 +73,48 @@ export function MemberDashboard() {
   const pendingPayments = payments.filter(p => p.status !== 'Paid');
   const totalPending = pendingPayments.reduce((sum, p) => sum + (p.amountDue - p.amountPaid) + calculateFine(p), 0);
 
-  const generateMockPayment = async () => {
+  const handlePayCurrentMonth = async () => {
     if (!currentUser || !userProfile) return;
     const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    // Check if there's already a payment for this month
+    const existingPayment = payments.find(p => p.month === currentMonth);
+    
+    if (existingPayment) {
+      if (existingPayment.status !== 'Paid') {
+        setSelectedPayment(existingPayment);
+        setShowPayModal(true);
+      } else {
+        alert('You have already paid for the current month.');
+      }
+      return;
+    }
+
+    // If no payment exists, create a pending one for the current month and open modal
     try {
-      await addDoc(collection(db, 'payments'), {
+      const docRef = await addDoc(collection(db, 'payments'), {
         userId: currentUser.uid,
         memberId: userProfile.memberId,
         month: currentMonth,
-        amountDue: 100,
+        amountDue: monthlyFee,
         amountPaid: 0,
         dueDate: `${currentMonth}-05`,
         status: 'Pending',
         fine: 0
       });
+      
+      setSelectedPayment({
+        id: docRef.id,
+        userId: currentUser.uid,
+        memberId: userProfile.memberId,
+        month: currentMonth,
+        amountDue: monthlyFee,
+        amountPaid: 0,
+        dueDate: `${currentMonth}-05`,
+        status: 'Pending',
+        fine: 0
+      } as Payment);
+      setShowPayModal(true);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'payments');
     }
@@ -127,18 +157,16 @@ export function MemberDashboard() {
           <h2 className="text-2xl font-bold text-slate-900">Welcome back, {userProfile?.name}</h2>
           <p className="text-slate-500 mt-1">Member ID: <span className="font-mono text-slate-700">{userProfile?.memberId}</span></p>
         </div>
-        {payments.length === 0 && (
-          <button 
-            onClick={generateMockPayment}
-            className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
-          >
-            <Plus size={16} />
-            Generate Demo Payment
-          </button>
-        )}
+        <button 
+          onClick={handlePayCurrentMonth}
+          className="bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+        >
+          <CreditCard size={18} />
+          Pay Now
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
             <span className="text-2xl font-bold">৳</span>
@@ -146,6 +174,16 @@ export function MemberDashboard() {
           <div>
             <p className="text-sm font-medium text-slate-500">Total Contribution</p>
             <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalContribution)}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+            <Calendar size={24} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-500">Monthly Base Fee</p>
+            <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(monthlyFee)}</h3>
           </div>
         </div>
 

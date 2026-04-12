@@ -37,7 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const docRef = doc(db, 'users', user.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setUserProfile(docSnap.data() as UserProfile);
+            const data = docSnap.data() as UserProfile;
+            
+            // Auto-upgrade specific emails to Admin if they aren't already
+            const email = user.email?.toLowerCase() || '';
+            const isAdminEmail = email.startsWith('bijoy.mm112') || email === 'admin@yieldorg.com' || email === 'mrmunna774@gmail.com';
+            
+            if (isAdminEmail && (data.role !== 'Admin' || data.status !== 'Active')) {
+              const updatedProfile = { ...data, role: 'Admin', status: 'Active', memberId: data.memberId || 'YO-ADMIN' };
+              await setDoc(docRef, updatedProfile, { merge: true });
+              setUserProfile(updatedProfile);
+            } else {
+              setUserProfile(data);
+            }
           } else {
             setUserProfile(null);
           }
@@ -56,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const bootstrapUser = async (name: string, email: string, phone: string) => {
     if (!auth.currentUser) return;
     
-    const isAdmin = email.toLowerCase().startsWith('bijoy.mm112') || email.toLowerCase() === 'admin@yieldorg.com';
+    const isAdmin = email.toLowerCase().startsWith('bijoy.mm112') || email.toLowerCase() === 'admin@yieldorg.com' || email.toLowerCase() === 'mrmunna774@gmail.com';
     
     const profile: UserProfile = {
       uid: auth.currentUser.uid,
