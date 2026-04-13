@@ -69,11 +69,11 @@ function AppContent() {
       case 'members':
         return isPrivileged ? <Members /> : <MemberDashboard />;
       case 'finances':
-        return isPrivileged ? <Finances /> : <MemberDashboard />;
+        return <Finances />;
       case 'governance':
         return <Governance />;
       case 'inventory':
-        return isPrivileged ? <Inventory /> : <MemberDashboard />;
+        return <Inventory />;
       default:
         return !isPrivileged ? <MemberDashboard /> : <Dashboard />;
     }

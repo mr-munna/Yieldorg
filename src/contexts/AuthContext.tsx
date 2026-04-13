@@ -30,11 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubProfile: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       if (user) {
+        if (unsubProfile) {
+          unsubProfile();
+        }
         const docRef = doc(db, 'users', user.uid);
-        const unsubProfile = onSnapshot(docRef, async (docSnap) => {
+        unsubProfile = onSnapshot(docRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
             
@@ -57,15 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
           setLoading(false);
         });
-
-        return () => unsubProfile();
       } else {
+        if (unsubProfile) {
+          unsubProfile();
+          unsubProfile = undefined;
+        }
         setUserProfile(null);
         setLoading(false);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      if (unsubProfile) {
+        unsubProfile();
+      }
+      unsubscribe();
+    };
   }, []);
 
   const bootstrapUser = async (name: string, email: string, phone: string) => {

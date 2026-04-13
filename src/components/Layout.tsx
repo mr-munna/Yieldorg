@@ -33,7 +33,9 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const navItems = !isPrivileged ? [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
     { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
+    { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
     { id: 'governance', label: 'Governance', icon: Scale },
+    { id: 'inventory', label: 'Inventory & Tools', icon: Archive },
   ] : [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
     { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
