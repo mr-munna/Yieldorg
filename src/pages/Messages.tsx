@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, addDoc, serverTimestamp, orderBy, limit, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, addDoc, setDoc, serverTimestamp, orderBy, limit, where } from 'firebase/firestore';
 import { Search, Send, User, Users, Plus, X, MessageSquare } from 'lucide-react';
 import { Member } from '../types';
 
@@ -23,6 +23,7 @@ export function Messages() {
   const { userProfile, currentUser } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<GroupChat[]>([]);
+  const [allChats, setAllChats] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -54,21 +55,23 @@ export function Messages() {
 
   useEffect(() => {
     if (!userProfile?.uid) return;
-    // Fetch groups
-    const qGroups = query(
+    // Fetch all chats
+    const qChats = query(
       collection(db, 'chats'), 
-      where('isGroup', '==', true),
       where('participants', 'array-contains', userProfile.uid)
     );
-    const unsubGroups = onSnapshot(qGroups, (snapshot) => {
-      const grps: GroupChat[] = [];
+    const unsubChats = onSnapshot(qChats, (snapshot) => {
+      const chats: any[] = [];
       snapshot.forEach(doc => {
-        grps.push({ id: doc.id, ...doc.data() } as GroupChat);
+        chats.push({ id: doc.id, ...doc.data() });
       });
-      setGroups(grps);
+      setAllChats(chats);
+      
+      const grps = chats.filter(c => c.isGroup);
+      setGroups(grps as GroupChat[]);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'chats'));
 
-    return () => unsubGroups();
+    return () => unsubChats();
   }, [userProfile]);
 
   useEffect(() => {
@@ -102,6 +105,15 @@ export function Messages() {
     setNewMessage('');
 
     try {
+      // Update the chat document with the last message
+      const chatRef = doc(db, 'chats', activeChat.id);
+      await setDoc(chatRef, {
+        lastMessage: messageText,
+        lastMessageTime: serverTimestamp(),
+        lastMessageSender: userProfile.name,
+        participants: activeChat.type === 'direct' ? [userProfile.uid, activeChat.member!.id] : undefined
+      }, { merge: true });
+
       await addDoc(collection(db, `chats/${activeChat.id}/messages`), {
         text: messageText,
         senderId: userProfile.uid,
@@ -143,6 +155,22 @@ export function Messages() {
     g.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const sortedMembers = [...filteredMembers].sort((a, b) => {
+    const chatA = allChats.find(c => c.id === [userProfile?.uid, a.id].sort().join('_'));
+    const chatB = allChats.find(c => c.id === [userProfile?.uid, b.id].sort().join('_'));
+    const timeA = chatA?.lastMessageTime?.toMillis?.() || 0;
+    const timeB = chatB?.lastMessageTime?.toMillis?.() || 0;
+    return timeB - timeA;
+  });
+
+  const sortedGroups = [...filteredGroups].sort((a, b) => {
+    const chatA = allChats.find(c => c.id === a.id);
+    const chatB = allChats.find(c => c.id === b.id);
+    const timeA = chatA?.lastMessageTime?.toMillis?.() || 0;
+    const timeB = chatB?.lastMessageTime?.toMillis?.() || 0;
+    return timeB - timeA;
+  });
+
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Loading messages...</div>;
   }
@@ -174,10 +202,12 @@ export function Messages() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {filteredGroups.length > 0 && (
+          {sortedGroups.length > 0 && (
             <div className="py-2">
               <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Groups</h3>
-              {filteredGroups.map(group => (
+              {sortedGroups.map(group => {
+                const chatData = allChats.find(c => c.id === group.id);
+                return (
                 <button
                   key={group.id}
                   onClick={() => setActiveChat({ id: group.id, name: group.name, type: 'group' })}
@@ -188,17 +218,22 @@ export function Messages() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-slate-900 truncate">{group.name}</h4>
-                    <p className="text-xs text-slate-500 truncate">{group.participants.length} members</p>
+                    {chatData?.lastMessage ? (
+                      <p className="text-xs truncate font-medium text-indigo-600">{chatData.lastMessageSender}: {chatData.lastMessage}</p>
+                    ) : (
+                      <p className="text-xs text-slate-500 truncate">{group.participants.length} members</p>
+                    )}
                   </div>
                 </button>
-              ))}
+              )})}
             </div>
           )}
 
           <div className="py-2">
             <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Direct Messages</h3>
-            {filteredMembers.map(member => {
+            {sortedMembers.map(member => {
               const chatId = [userProfile?.uid, member.id].sort().join('_');
+              const chatData = allChats.find(c => c.id === chatId);
               return (
                 <button
                   key={member.id}
@@ -210,12 +245,16 @@ export function Messages() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-slate-900 truncate">{member.name}</h4>
-                    <p className="text-xs text-slate-500 truncate">{member.role} • {member.memberId}</p>
+                    {chatData?.lastMessage ? (
+                      <p className="text-xs truncate font-medium text-indigo-600">{chatData.lastMessage}</p>
+                    ) : (
+                      <p className="text-xs text-slate-500 truncate">{member.role} • {member.memberId}</p>
+                    )}
                   </div>
                 </button>
               );
             })}
-            {filteredMembers.length === 0 && filteredGroups.length === 0 && (
+            {sortedMembers.length === 0 && sortedGroups.length === 0 && (
               <div className="p-8 text-center text-slate-500 text-sm">
                 No results found.
               </div>

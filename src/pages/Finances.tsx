@@ -76,7 +76,13 @@ export function Finances() {
   };
 
   // Join payments with member names and calculate dynamic fine
-  const activeMembers = members.filter(m => m.status === 'Active');
+  const activeMembers = members.filter(m => m.status === 'Active').sort((a, b) => {
+    if (a.role === 'Admin' && b.role !== 'Admin') return -1;
+    if (b.role === 'Admin' && a.role !== 'Admin') return 1;
+    const idA = a.memberId || '';
+    const idB = b.memberId || '';
+    return idA.localeCompare(idB);
+  });
   const paymentsWithMembers = activeMembers
     .filter(m => {
       // Exclude members who joined after the selected month

@@ -55,13 +55,24 @@ export function MemberDashboard() {
     });
 
     // Fetch Notifications
-    const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
+    const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(15));
     const unsubNotifs = onSnapshot(qNotif, (snapshot) => {
       const notifs: any[] = [];
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
       snapshot.forEach((doc) => {
-        notifs.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (data.createdAt) {
+          const createdAtDate = data.createdAt.toDate();
+          if (createdAtDate > sevenDaysAgo) {
+            notifs.push({ id: doc.id, ...data });
+          }
+        } else {
+          notifs.push({ id: doc.id, ...data });
+        }
       });
-      setNotifications(notifs);
+      setNotifications(notifs.slice(0, 5));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
 
     return () => {

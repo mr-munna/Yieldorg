@@ -125,11 +125,15 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
           </div>
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-900/50 hover:bg-emerald-700 text-emerald-100 py-2 rounded-lg text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-emerald-900/50 hover:bg-emerald-700 text-emerald-100 py-2 rounded-lg text-sm transition-colors mb-4"
           >
             <LogOut size={16} />
             Sign Out
           </button>
+          <div className="pt-3 border-t border-emerald-700/50 text-center">
+            <p className="text-[10px] text-emerald-400/70 uppercase tracking-wider">Developed with ❤️ by</p>
+            <p className="text-xs font-semibold text-emerald-300">Bijoy Mahmud Munna</p>
+          </div>
         </div>
       </aside>
 

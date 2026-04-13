@@ -134,7 +134,13 @@ export function Members() {
   );
 
   const pendingRequests = filteredMembers.filter(m => m.status === 'Pending');
-  const activeMembers = filteredMembers.filter(m => m.status !== 'Pending');
+  const activeMembers = filteredMembers.filter(m => m.status !== 'Pending').sort((a, b) => {
+    if (a.role === 'Admin' && b.role !== 'Admin') return -1;
+    if (b.role === 'Admin' && a.role !== 'Admin') return 1;
+    const idA = a.memberId || '';
+    const idB = b.memberId || '';
+    return idA.localeCompare(idB);
+  });
 
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Loading members...</div>;
