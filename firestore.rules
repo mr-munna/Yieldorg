@@ -80,7 +80,8 @@ service cloud.firestore {
       // WARNING: Allowing all authenticated users to read the users collection exposes PII (email, phone).
       // In a production app, sensitive data should be moved to a private subcollection or separate collection.
       allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() && request.resource.data.status == 'Pending';
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() && 
+                    (request.resource.data.status == 'Pending' || isAdmin());
       allow update: if isAdmin() || (isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status);
       allow delete: if isAdmin();
     }

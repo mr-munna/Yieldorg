@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield, KeyRound, User as UserIcon, Mail, Phone, BookOpen, CheckCircle2 } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -19,6 +19,12 @@ export function Login() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentUser && !isLogin) {
+      setMessage('Your authentication is active, but your profile was not found (this can happen after a database reset). Please fill in your details below to re-register and restore your access.');
+    }
+  }, [currentUser, isLogin]);
 
   const defaultConstitution = `The written rules governing the operations of Yield Organization:
 - Membership: Open to individuals over 18 years of age. Requires a one-time admission fee and regular monthly contributions.
@@ -108,15 +114,30 @@ export function Login() {
         setError('Email/Password login is not enabled in Firebase. Please enable it in the Firebase Console under Authentication > Sign-in method.');
       } else if (err.code === 'auth/weak-password') {
         setError('Password should be at least 6 characters.');
-      } else if (err.code === 'auth/invalid-credential') {
-        setError('Incorrect password. If you forgot it, type your email and click "Forgot Password?".');
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+        setError('Account not found or incorrect password. If you haven\'t registered yet, please use the registration form below.');
+        setIsLogin(false); // Suggest registration
       } else if (err.code === 'auth/email-already-in-use') {
         setError('This email is already registered! Please click "Already approved? Sign in" below, and log in. If you forgot your password, use the "Forgot Password?" button.');
         setIsLogin(true); // Auto-switch to login
         setIdentifier(email.trim()); // Pre-fill the email
       } else {
-        setError(err.message || 'Failed to authenticate.');
+        setError(`${err.code}: ${err.message}` || 'Failed to authenticate.');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err: any) {
+      console.error(err);
+      setError(`Google Sign-In failed: ${err.code}: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -285,15 +306,47 @@ export function Login() {
               {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Submit Registration Request')}
               {!loading && !isLogin && <CheckCircle2 size={18} />}
             </button>
+
+            {isLogin && (
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-slate-500">Or continue with</span>
+                </div>
+              </div>
+            )}
+
+            {isLogin && (
+              <button 
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" referrerPolicy="no-referrer" />
+                Sign in with Google
+              </button>
+            )}
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
             <button 
               onClick={() => setIsLogin(!isLogin)}
-              className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+              className="text-emerald-600 hover:text-emerald-700 text-sm font-medium block w-full"
             >
               {isLogin ? "Don't have an account? Register" : "Already approved? Sign in"}
             </button>
+            
+            {currentUser && (
+              <button 
+                onClick={() => signOut(auth)}
+                className="text-slate-400 hover:text-slate-500 text-xs font-medium block w-full"
+              >
+                Sign out and start over
+              </button>
+            )}
           </div>
         </div>
       </div>
