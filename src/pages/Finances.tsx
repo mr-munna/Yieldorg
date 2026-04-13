@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { formatCurrency, cn } from '../lib/utils';
 import { Download, Settings, Save } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Payment, Member } from '../types';
 
 export function Finances() {
@@ -57,6 +57,18 @@ export function Finances() {
       alert('Failed to update settings.');
     }
     setIsSavingFine(false);
+  };
+
+  const handleApprovePayment = async (paymentId: string) => {
+    try {
+      await updateDoc(doc(db, 'payments', paymentId), {
+        status: 'Paid'
+      });
+      alert('Payment approved successfully!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `payments/${paymentId}`);
+      alert('Failed to approve payment.');
+    }
   };
 
   // Join payments with member names and calculate dynamic fine
@@ -238,10 +250,13 @@ export function Finances() {
                 <th className="px-6 py-4 font-medium">Member</th>
                 <th className="px-6 py-4 font-medium">Amount Due</th>
                 <th className="px-6 py-4 font-medium">Amount Paid</th>
+                <th className="px-6 py-4 font-medium">Method</th>
+                <th className="px-6 py-4 font-medium">Transaction ID</th>
                 <th className="px-6 py-4 font-medium">Due Date</th>
                 <th className="px-6 py-4 font-medium">Paid Date</th>
                 <th className="px-6 py-4 font-medium">Late Fine</th>
                 <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -253,6 +268,8 @@ export function Finances() {
                   </td>
                   <td className="px-6 py-4 text-slate-600">{formatCurrency(payment.amountDue)}</td>
                   <td className="px-6 py-4 font-medium text-slate-900">{formatCurrency(payment.amountPaid)}</td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">{payment.paymentMethod || '-'}</td>
+                  <td className="px-6 py-4 text-slate-600 text-xs font-mono">{payment.transactionId || '-'}</td>
                   <td className="px-6 py-4 text-slate-600 text-sm">{payment.dueDate}</td>
                   <td className="px-6 py-4 text-slate-600 text-sm">{payment.paidDate || '-'}</td>
                   <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(payment.dynamicFine)}</td>
@@ -260,11 +277,22 @@ export function Finances() {
                     <span className={cn(
                       "px-2.5 py-1 rounded-full text-xs font-medium",
                       payment.status === 'Paid' ? "bg-emerald-100 text-emerald-700" :
+                      payment.status === 'Verifying' ? "bg-blue-100 text-blue-700" :
                       payment.status === 'Pending' ? "bg-amber-100 text-amber-700" :
                       "bg-rose-100 text-rose-700"
                     )}>
                       {payment.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {payment.status === 'Verifying' && (
+                      <button 
+                        onClick={() => handleApprovePayment(payment.id)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      >
+                        Approve
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

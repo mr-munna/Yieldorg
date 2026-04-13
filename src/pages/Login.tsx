@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield, KeyRound, User as UserIcon, Mail, Phone, BookOpen, CheckCircle2 } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -124,20 +124,6 @@ export function Login() {
       } else {
         setError(`${err.code}: ${err.message}` || 'Failed to authenticate.');
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      console.error(err);
-      setError(`Google Sign-In failed: ${err.code}: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -306,29 +292,6 @@ export function Login() {
               {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Submit Registration Request')}
               {!loading && !isLogin && <CheckCircle2 size={18} />}
             </button>
-
-            {isLogin && (
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-slate-500">Or continue with</span>
-                </div>
-              </div>
-            )}
-
-            {isLogin && (
-              <button 
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-                className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" referrerPolicy="no-referrer" />
-                Sign in with Google
-              </button>
-            )}
           </form>
 
           <div className="mt-6 text-center space-y-3">

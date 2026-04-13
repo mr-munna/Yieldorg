@@ -68,7 +68,9 @@ export function MemberDashboard() {
     return 0;
   };
 
-  const totalContribution = payments.reduce((sum, p) => sum + p.amountPaid, 0);
+  const totalContribution = payments
+    .filter(p => p.status === 'Paid')
+    .reduce((sum, p) => sum + p.amountPaid, 0);
   
   const pendingPayments = payments.filter(p => p.status !== 'Paid');
   const totalPending = pendingPayments.reduce((sum, p) => sum + (p.amountDue - p.amountPaid) + calculateFine(p), 0);
@@ -130,7 +132,7 @@ export function MemberDashboard() {
 
     try {
       await updateDoc(doc(db, 'payments', selectedPayment.id), {
-        status: 'Paid',
+        status: 'Verifying',
         amountPaid: totalAmount,
         fine: finalFine,
         paidDate: new Date().toISOString().split('T')[0],
@@ -287,6 +289,8 @@ export function MemberDashboard() {
                 <th className="px-6 py-4 font-medium">Due Date</th>
                 <th className="px-6 py-4 font-medium">Amount Due</th>
                 <th className="px-6 py-4 font-medium">Amount Paid</th>
+                <th className="px-6 py-4 font-medium">Method</th>
+                <th className="px-6 py-4 font-medium">Transaction ID</th>
                 <th className="px-6 py-4 font-medium">Fine</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium text-right">Action</th>
@@ -299,19 +303,22 @@ export function MemberDashboard() {
                   <td className="px-6 py-4 text-slate-600 text-sm">{payment.dueDate}</td>
                   <td className="px-6 py-4 text-slate-600">{formatCurrency(payment.amountDue)}</td>
                   <td className="px-6 py-4 font-medium text-slate-900">{formatCurrency(payment.amountPaid)}</td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">{payment.paymentMethod || '-'}</td>
+                  <td className="px-6 py-4 text-slate-600 text-xs font-mono">{payment.transactionId || '-'}</td>
                   <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(calculateFine(payment))}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-2.5 py-1 rounded-full text-xs font-medium",
                       payment.status === 'Paid' ? "bg-emerald-100 text-emerald-700" :
+                      payment.status === 'Verifying' ? "bg-blue-100 text-blue-700" :
                       payment.status === 'Pending' ? "bg-amber-100 text-amber-700" :
                       "bg-rose-100 text-rose-700"
                     )}>
-                      {payment.status}
+                      {payment.status === 'Verifying' ? 'Verifying' : payment.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {payment.status !== 'Paid' && (
+                    {payment.status !== 'Paid' && payment.status !== 'Verifying' && (
                       <button 
                         onClick={() => {
                           setSelectedPayment(payment);

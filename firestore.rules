@@ -60,7 +60,7 @@ service cloud.firestore {
              data.amountDue is number && data.amountDue >= 0 &&
              data.amountPaid is number && data.amountPaid >= 0 &&
              data.dueDate is string && data.dueDate.size() > 0 && data.dueDate.size() < 20 &&
-             data.status in ['Paid', 'Pending', 'Late'] &&
+             data.status in ['Paid', 'Pending', 'Late', 'Verifying'] &&
              data.fine is number && data.fine >= 0 &&
              (!('paidDate' in data) || (data.paidDate is string && data.paidDate.size() < 20)) &&
              (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() < 50)) &&
