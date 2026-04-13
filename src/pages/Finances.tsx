@@ -4,8 +4,12 @@ import { Download, Settings, Save } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Payment, Member } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Finances() {
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'Admin';
+
   const [selectedMonth, setSelectedMonth] = useState('2026-04');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -72,33 +76,53 @@ export function Finances() {
   };
 
   // Join payments with member names and calculate dynamic fine
-  const paymentsWithMembers = payments
-    .filter(p => p.month === selectedMonth)
-    .map(payment => {
-      const member = members.find(m => m.id === payment.userId || m.memberId === payment.memberId);
+  const activeMembers = members.filter(m => m.status === 'Active');
+  const paymentsWithMembers = activeMembers
+    .filter(m => {
+      // Exclude members who joined after the selected month
+      if (!m.joinDate) return true;
+      const joinMonth = m.joinDate.substring(0, 7);
+      return joinMonth <= selectedMonth;
+    })
+    .map(member => {
+      const payment = payments.find(p => (p.userId === member.id || p.memberId === member.memberId) && p.month === selectedMonth);
       
-      let calculatedFine = payment.fine || 0;
-      if (payment.status !== 'Paid' && payment.dueDate) {
+      let status = payment ? payment.status : 'Pending';
+      let amountDue = payment ? payment.amountDue : monthlyFee;
+      let amountPaid = payment ? payment.amountPaid : 0;
+      let dueDate = payment ? payment.dueDate : `${selectedMonth}-10`;
+      let paymentMethod = payment ? payment.paymentMethod : '';
+      let transactionId = payment ? payment.transactionId : '';
+      let paidDate = payment ? payment.paidDate : '';
+      
+      let calculatedFine = payment?.fine || 0;
+      if (status !== 'Paid') {
         const today = new Date();
-        const due = new Date(payment.dueDate);
+        const due = new Date(dueDate);
         
-        // Late fine starts after the 10th of the month
-        // The dueDate is usually the 5th or 10th? 
-        // The user said: "late fine shuru hobe masher 10 tarikher por theke."
-        // So if today is > 10th of the month, calculate fine.
-        
-        const dayOfMonth = today.getDate();
-        if (dayOfMonth > 10) {
-          const fineStartDay = 10;
-          const diffDays = dayOfMonth - fineStartDay;
+        // Late fine starts after the 10th of the month (from the 11th)
+        if (today > due) {
+          const diffTime = Math.abs(today.getTime() - due.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           calculatedFine = diffDays * dailyFine;
         }
       }
 
       return { 
-        ...payment, 
-        memberName: member?.name || 'Unknown',
-        dynamicFine: calculatedFine
+        id: payment?.id || `mock-${member.id}`,
+        userId: member.id,
+        memberId: member.memberId,
+        month: selectedMonth,
+        amountDue,
+        amountPaid,
+        dueDate,
+        paidDate,
+        status,
+        paymentMethod,
+        transactionId,
+        memberName: member.name,
+        dynamicFine: calculatedFine,
+        isMock: !payment
       };
     });
 
@@ -180,7 +204,8 @@ export function Finances() {
                 min="0"
                 value={monthlyFee}
                 onChange={(e) => setMonthlyFee(Number(e.target.value))}
-                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                disabled={!isAdmin}
+                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50 disabled:bg-slate-50"
               />
             </div>
           </div>
@@ -204,7 +229,8 @@ export function Finances() {
                 min="0"
                 value={dailyFine}
                 onChange={(e) => setDailyFine(Number(e.target.value))}
-                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                disabled={!isAdmin}
+                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
               />
             </div>
           </div>
@@ -225,22 +251,25 @@ export function Finances() {
               type="date" 
               value={foundationDate}
               onChange={(e) => setFoundationDate(e.target.value)}
-              className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+              disabled={!isAdmin}
+              className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 disabled:opacity-50 disabled:bg-slate-50"
             />
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <button 
-          onClick={handleSaveSettings}
-          disabled={isSavingFine}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
-        >
-          <Save size={18} />
-          {isSavingFine ? 'Saving Settings...' : 'Save Settings'}
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="flex justify-end">
+          <button 
+            onClick={handleSaveSettings}
+            disabled={isSavingFine}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+          >
+            <Save size={18} />
+            {isSavingFine ? 'Saving Settings...' : 'Save Settings'}
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
@@ -285,7 +314,7 @@ export function Finances() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {payment.status === 'Verifying' && (
+                    {isAdmin && payment.status === 'Verifying' && !payment.isMock && (
                       <button 
                         onClick={() => handleApprovePayment(payment.id)}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -298,7 +327,7 @@ export function Finances() {
               ))}
               {paymentsWithMembers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
                     No payment records found for this month.
                   </td>
                 </tr>

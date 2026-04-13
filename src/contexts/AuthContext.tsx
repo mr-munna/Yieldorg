@@ -71,18 +71,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const bootstrapUser = async (name: string, email: string, phone: string) => {
     if (!auth.currentUser) return;
     
-    const isAdmin = email.toLowerCase().startsWith('bijoy.mm112');
-    
     const profile: UserProfile = {
       uid: auth.currentUser.uid,
-      memberId: isAdmin ? 'YO-ADMIN' : null,
+      memberId: null,
       name,
       email,
       phone,
-      role: isAdmin ? 'Admin' : 'Member',
+      role: 'Member',
       joinDate: new Date().toISOString().split('T')[0],
       contact: email,
-      status: isAdmin ? 'Active' : 'Pending'
+      status: 'Pending'
     };
     try {
       await setDoc(doc(db, 'users', auth.currentUser.uid), profile);

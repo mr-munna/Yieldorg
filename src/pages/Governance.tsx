@@ -67,6 +67,21 @@ export function Governance() {
     setIsSaving(false);
   };
 
+  const renderFormattedText = (text: string) => {
+    return text.split('\n').map((line, index) => {
+      if (line.trim().startsWith('- ') && line.includes(':')) {
+        const [point, ...rest] = line.substring(2).split(':');
+        return (
+          <div key={index} className="mb-2">
+            <span className="font-bold text-slate-800">• {point}:</span>
+            {rest.join(':')}
+          </div>
+        );
+      }
+      return <div key={index} className="mb-2">{line}</div>;
+    });
+  };
+
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
   };
@@ -171,10 +186,10 @@ export function Governance() {
     setIsDeleting(true);
     setActionMessage(null);
     try {
-      // Delete all users except current admin
+      // Delete all users except current admin and active members
       const usersSnap = await getDocs(collection(db, 'users'));
       for (const userDoc of usersSnap.docs) {
-        if (userDoc.id !== currentUser?.uid) {
+        if (userDoc.id !== currentUser?.uid && userDoc.data().status !== 'Active') {
           await deleteDoc(doc(db, 'users', userDoc.id));
         }
       }
@@ -272,8 +287,8 @@ export function Governance() {
               </div>
             </div>
           ) : (
-            <div className="whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100">
-              {constitutionText}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              {renderFormattedText(constitutionText)}
             </div>
           )}
         </div>
@@ -324,8 +339,8 @@ export function Governance() {
               </div>
             </div>
           ) : (
-            <div className="whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100">
-              {ethicsText}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              {renderFormattedText(ethicsText)}
             </div>
           )}
         </div>
@@ -402,7 +417,7 @@ export function Governance() {
               Confirm Database Reset
             </h3>
             <p className="text-slate-600 mb-6">
-              WARNING: This action cannot be undone. It will permanently delete ALL users (except you), payments, and inventory data. Are you absolutely sure you want to proceed?
+              WARNING: This action cannot be undone. It will permanently delete all payments, inventory data, and pending users. Active members and their profiles will be preserved. Are you absolutely sure you want to proceed?
             </p>
             <div className="flex gap-3">
               <button 

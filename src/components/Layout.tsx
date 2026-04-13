@@ -26,10 +26,11 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
     return () => window.removeEventListener('changeTab', handleTabChange);
   }, [setActiveTab]);
 
-  // If user is just a member, they only see their dashboard
-  const isStandardMember = userProfile?.role === 'Member';
+  // If user is not an admin/president/secretary/treasurer, they see limited views
+  const userRole = (userProfile?.role || '').toLowerCase();
+  const isPrivileged = ['admin', 'president', 'secretary', 'treasurer'].includes(userRole);
 
-  const navItems = isStandardMember ? [
+  const navItems = !isPrivileged ? [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
     { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
     { id: 'governance', label: 'Governance', icon: Scale },

@@ -17,7 +17,9 @@ function AppContent() {
 
   useEffect(() => {
     if (userProfile) {
-      if (userProfile.role === 'Member') {
+      const userRole = (userProfile.role || '').toLowerCase();
+      const isPrivileged = ['admin', 'president', 'secretary', 'treasurer'].includes(userRole);
+      if (!isPrivileged) {
         setActiveTab('member-dashboard');
       } else {
         setActiveTab('dashboard');
@@ -55,6 +57,9 @@ function AppContent() {
     );
   }
 
+  const userRole = (userProfile?.role || '').toLowerCase();
+  const isPrivileged = ['admin', 'president', 'secretary', 'treasurer'].includes(userRole);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -62,15 +67,15 @@ function AppContent() {
       case 'member-dashboard':
         return <MemberDashboard />;
       case 'members':
-        return <Members />;
+        return isPrivileged ? <Members /> : <MemberDashboard />;
       case 'finances':
-        return <Finances />;
+        return isPrivileged ? <Finances /> : <MemberDashboard />;
       case 'governance':
         return <Governance />;
       case 'inventory':
-        return <Inventory />;
+        return isPrivileged ? <Inventory /> : <MemberDashboard />;
       default:
-        return userProfile?.role === 'Member' ? <MemberDashboard /> : <Dashboard />;
+        return !isPrivileged ? <MemberDashboard /> : <Dashboard />;
     }
   };
 

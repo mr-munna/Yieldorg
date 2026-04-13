@@ -4,8 +4,12 @@ import { cn } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, orderBy, limit } from 'firebase/firestore';
 import { Member } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Members() {
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'Admin';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,20 +36,20 @@ export function Members() {
 
   const handleApprove = async (userId: string) => {
     try {
-      const q = query(collection(db, 'users'), orderBy('memberId', 'desc'), limit(1));
-      const snapshot = await getDocs(q);
+      const usersSnap = await getDocs(collection(db, 'users'));
+      let maxIdNumber = 0;
       
-      let nextIdNumber = 1;
-      if (!snapshot.empty) {
-        const highestId = snapshot.docs[0].data().memberId;
-        if (highestId && highestId.startsWith('YO-')) {
-          const numPart = parseInt(highestId.split('-')[1], 10);
-          if (!isNaN(numPart)) {
-            nextIdNumber = numPart + 1;
+      usersSnap.forEach((doc) => {
+        const data = doc.data();
+        if (data.memberId && data.memberId.startsWith('YO-')) {
+          const numPart = parseInt(data.memberId.split('-')[1], 10);
+          if (!isNaN(numPart) && numPart > maxIdNumber) {
+            maxIdNumber = numPart;
           }
         }
-      }
+      });
       
+      const nextIdNumber = maxIdNumber + 1;
       const newMemberId = `YO-${nextIdNumber.toString().padStart(3, '0')}`;
 
       await updateDoc(doc(db, 'users', userId), {
@@ -110,13 +114,15 @@ export function Members() {
           <h2 className="text-2xl font-bold text-slate-900">Member Management</h2>
           <p className="text-slate-500 mt-1">Manage society members, roles, and approve new requests.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-        >
-          <Plus size={18} />
-          Add Member
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          >
+            <Plus size={18} />
+            Add Member
+          </button>
+        )}
       </div>
 
       {showAddModal && (
@@ -159,7 +165,7 @@ export function Members() {
                   <th className="px-6 py-4 font-medium">Name</th>
                   <th className="px-6 py-4 font-medium">Email</th>
                   <th className="px-6 py-4 font-medium">Phone</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
+                  {isAdmin && <th className="px-6 py-4 font-medium text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-200/50">
@@ -168,20 +174,22 @@ export function Members() {
                     <td className="px-6 py-4 font-medium text-slate-900">{member.name}</td>
                     <td className="px-6 py-4 text-slate-600 text-sm">{member.email}</td>
                     <td className="px-6 py-4 text-slate-600 text-sm">{member.phone}</td>
-                    <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button 
-                        onClick={() => handleApprove(member.id)}
-                        className="flex items-center gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                      >
-                        <CheckCircle size={16} /> Approve
-                      </button>
-                      <button 
-                        onClick={() => handleReject(member.id)}
-                        className="flex items-center gap-1 bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                      >
-                        <XCircle size={16} /> Reject
-                      </button>
-                    </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4 text-right flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleApprove(member.id)}
+                          className="flex items-center gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                        >
+                          <CheckCircle size={16} /> Approve
+                        </button>
+                        <button 
+                          onClick={() => handleReject(member.id)}
+                          className="flex items-center gap-1 bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                        >
+                          <XCircle size={16} /> Reject
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -214,7 +222,7 @@ export function Members() {
                 <th className="px-6 py-4 font-medium">Contact Info</th>
                 <th className="px-6 py-4 font-medium">Joining Date</th>
                 <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
+                {isAdmin && <th className="px-6 py-4 font-medium text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -247,33 +255,35 @@ export function Members() {
                       {member.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right relative">
-                    <button 
-                      onClick={() => setActionMenuId(actionMenuId === member.id ? null : member.id)}
-                      className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                    {actionMenuId === member.id && (
-                      <div className="absolute right-8 top-10 w-40 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10">
-                        <button 
-                          onClick={() => {
-                            setRoleModalMember(member);
-                            setActionMenuId(null);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
-                        >
-                          Change Role
-                        </button>
-                        <button 
-                          onClick={() => toggleStatus(member.id, member.status)}
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
-                        >
-                          Mark as {member.status === 'Active' ? 'Inactive' : 'Active'}
-                        </button>
-                      </div>
-                    )}
-                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-4 text-right relative">
+                      <button 
+                        onClick={() => setActionMenuId(actionMenuId === member.id ? null : member.id)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors"
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+                      {actionMenuId === member.id && (
+                        <div className="absolute right-8 top-10 w-40 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10">
+                          <button 
+                            onClick={() => {
+                              setRoleModalMember(member);
+                              setActionMenuId(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                          >
+                            Change Role
+                          </button>
+                          <button 
+                            onClick={() => toggleStatus(member.id, member.status)}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                          >
+                            Mark as {member.status === 'Active' ? 'Inactive' : 'Active'}
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
               {activeMembers.length === 0 && (

@@ -129,6 +129,21 @@ export function Login() {
     }
   };
 
+  const renderConstitution = (text: string) => {
+    return text.split('\n').map((line, index) => {
+      if (line.trim().startsWith('- ') && line.includes(':')) {
+        const [point, ...rest] = line.substring(2).split(':');
+        return (
+          <div key={index} className="mb-2">
+            <span className="font-bold text-slate-800">• {point}:</span>
+            {rest.join(':')}
+          </div>
+        );
+      }
+      return <div key={index} className="mb-2">{line}</div>;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className={cn("w-full bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden transition-all duration-500", !isLogin ? "max-w-2xl" : "max-w-md")}>
@@ -224,8 +239,8 @@ export function Login() {
                     <BookOpen size={18} className="text-emerald-600" />
                     Constitution & Rules
                   </h3>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 h-[240px] overflow-y-auto text-sm text-slate-600 whitespace-pre-wrap">
-                    {constitutionText}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 h-[240px] overflow-y-auto text-sm text-slate-600">
+                    {renderConstitution(constitutionText)}
                   </div>
                   <label className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl cursor-pointer hover:bg-emerald-100 transition-colors">
                     <input 

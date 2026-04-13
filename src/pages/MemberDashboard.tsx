@@ -100,7 +100,7 @@ export function MemberDashboard() {
         month: currentMonth,
         amountDue: monthlyFee,
         amountPaid: 0,
-        dueDate: `${currentMonth}-05`,
+        dueDate: `${currentMonth}-10`,
         status: 'Pending',
         fine: 0
       });
@@ -112,7 +112,7 @@ export function MemberDashboard() {
         month: currentMonth,
         amountDue: monthlyFee,
         amountPaid: 0,
-        dueDate: `${currentMonth}-05`,
+        dueDate: `${currentMonth}-10`,
         status: 'Pending',
         fine: 0
       } as Payment);
@@ -334,7 +334,7 @@ export function MemberDashboard() {
               ))}
               {payments.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-slate-500">
                     No payment records found.
                   </td>
                 </tr>

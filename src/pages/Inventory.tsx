@@ -3,6 +3,7 @@ import { Archive, CheckCircle2, AlertCircle, X, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
 
 interface InventoryItem {
   id: string;
@@ -13,6 +14,9 @@ interface InventoryItem {
 }
 
 export function Inventory() {
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'Admin';
+
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -62,13 +66,15 @@ export function Inventory() {
           <h2 className="text-2xl font-bold text-slate-900">Inventory & Tools</h2>
           <p className="text-slate-500 mt-1">Track essential physical assets and documents of the society.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-        >
-          <Plus size={18} />
-          Add Item
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          >
+            <Plus size={18} />
+            Add Item
+          </button>
+        )}
       </div>
 
       {showAddModal && (
