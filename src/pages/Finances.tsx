@@ -24,21 +24,21 @@ export function Finances() {
         setMonthlyTarget(docSnap.data().monthlyTarget || 0);
         setFoundationDate(docSnap.data().foundationDate || '');
       }
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
 
     // Fetch Members
     const unsubMembers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const m: Member[] = [];
       snapshot.forEach(d => m.push({ id: d.id, ...d.data() } as Member));
       setMembers(m);
-    });
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     // Fetch Payments
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
       const p: Payment[] = [];
       snapshot.forEach(d => p.push({ id: d.id, ...d.data() } as Payment));
       setPayments(p);
-    });
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'payments'));
 
     return () => { unsubSettings(); unsubMembers(); unsubPayments(); };
   }, []);
@@ -49,7 +49,6 @@ export function Finances() {
       await setDoc(doc(db, 'settings', 'general'), { 
         dailyFineAmount: dailyFine,
         monthlyFeeAmount: monthlyFee,
-        monthlyTarget: monthlyTarget,
         foundationDate: foundationDate
       }, { merge: true });
       alert('Settings updated successfully!');
@@ -70,9 +69,16 @@ export function Finances() {
       if (payment.status !== 'Paid' && payment.dueDate) {
         const today = new Date();
         const due = new Date(payment.dueDate);
-        if (today > due) {
-          const diffTime = Math.abs(today.getTime() - due.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Late fine starts after the 10th of the month
+        // The dueDate is usually the 5th or 10th? 
+        // The user said: "late fine shuru hobe masher 10 tarikher por theke."
+        // So if today is > 10th of the month, calculate fine.
+        
+        const dayOfMonth = today.getDate();
+        if (dayOfMonth > 10) {
+          const fineStartDay = 10;
+          const diffDays = dayOfMonth - fineStartDay;
           calculatedFine = diffDays * dailyFine;
         }
       }
@@ -143,7 +149,7 @@ export function Finances() {
       </div>
 
       {/* Fine Configuration Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
@@ -187,30 +193,6 @@ export function Finances() {
                 value={dailyFine}
                 onChange={(e) => setDailyFine(Number(e.target.value))}
                 className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-              <span className="font-bold">৳</span>
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900">Monthly Target</h3>
-              <p className="text-sm text-slate-500">Set the total collection target.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
-              <input 
-                type="number" 
-                min="0"
-                value={monthlyTarget}
-                onChange={(e) => setMonthlyTarget(Number(e.target.value))}
-                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
           </div>

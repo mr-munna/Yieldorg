@@ -5,26 +5,30 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc } from 'firebase/firestore';
 import { Payment } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Dashboard() {
+  const { userProfile, currentUser } = useAuth();
   const [stats, setStats] = useState({
     totalMembers: 0,
     totalCollected: 0,
     monthlyTarget: 0,
     pendingDues: 0,
-    totalFineCollected: 0
+    totalFineCollected: 0,
+    monthlyFeeAmount: 0
   });
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [orgAge, setOrgAge] = useState('');
+
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     // Fetch Settings for Monthly Target and Foundation Date
     const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const target = data.monthlyTarget !== undefined ? data.monthlyTarget : 0;
-        setStats(prev => ({ ...prev, monthlyTarget: target }));
+        setStats(prev => ({ ...prev, monthlyFeeAmount: data.monthlyFeeAmount || 0 }));
         
         if (data.foundationDate) {
           const calculateAge = () => {
@@ -55,11 +59,16 @@ export function Dashboard() {
       } else {
         setOrgAge('Not Set');
       }
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
 
-    // Fetch Users for Total Members
+    // Fetch Users for Total Members and Pending Count
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setStats(prev => ({ ...prev, totalMembers: snapshot.size }));
+      const allUsers = snapshot.docs.map(d => d.data());
+      const activeUsers = allUsers.filter(u => u.status === 'Active');
+      const pendingUsers = allUsers.filter(u => u.status === 'Pending');
+      
+      setStats(prev => ({ ...prev, totalMembers: activeUsers.length }));
+      setPendingCount(pendingUsers.length);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     // Fetch Payments for Collected, Pending, and Chart
@@ -94,19 +103,35 @@ export function Dashboard() {
         }
       });
 
-      setStats(prev => ({ ...prev, totalCollected: collected, pendingDues: pending, totalFineCollected: fineCollected }));
+      // Calculate Dynamic Monthly Target for current month
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const currentMonthPayments = snapshot.docs.filter(d => d.data().month === currentMonth);
+      const currentMonthFines = currentMonthPayments.reduce((acc, d) => acc + (d.data().fine || 0), 0);
+      
+      // Use a ref or functional update to avoid stale totalMembers/monthlyFeeAmount
+      setStats(prev => {
+        const dynamicTarget = (prev.totalMembers * prev.monthlyFeeAmount) + currentMonthFines;
+        
+        // Format Chart Data using the dynamic target for the current month
+        const newChartData = Array.from(monthsMap.entries()).map(([month, amount]) => {
+          const date = new Date(month + '-01');
+          return {
+            name: date.toLocaleString('default', { month: 'short' }),
+            target: month === currentMonth ? dynamicTarget : (prev.totalMembers * prev.monthlyFeeAmount), // Simple fallback for past months
+            collected: amount
+          };
+        });
+        setChartData(newChartData);
 
-      // Format Chart Data
-      const newChartData = Array.from(monthsMap.entries()).map(([month, amount]) => {
-        const date = new Date(month + '-01');
-        return {
-          name: date.toLocaleString('default', { month: 'short' }),
-          target: stats.monthlyTarget || 0,
-          collected: amount
+        return { 
+          ...prev, 
+          totalCollected: collected, 
+          pendingDues: pending, 
+          totalFineCollected: fineCollected,
+          monthlyTarget: dynamicTarget
         };
       });
-      
-      setChartData(newChartData);
+
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'payments'));
 
@@ -115,7 +140,7 @@ export function Dashboard() {
       unsubUsers();
       unsubPayments();
     };
-  }, [stats.monthlyTarget]);
+  }, []);
 
   const statCards = [
     {
@@ -176,6 +201,26 @@ export function Dashboard() {
           <span className="text-sm font-medium">Age: {orgAge}</span>
         </div>
       </div>
+
+      {pendingCount > 0 && (userProfile?.role === 'Admin' || currentUser?.email?.startsWith('bijoy.mm112')) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+              <Users size={20} />
+            </div>
+            <div>
+              <h4 className="font-bold text-amber-900">{pendingCount} Pending Registration Requests</h4>
+              <p className="text-sm text-amber-700">New or re-registering members are waiting for your approval.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'members' }))}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Review Requests
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {statCards.map((stat, index) => {

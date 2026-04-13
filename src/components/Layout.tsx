@@ -16,6 +16,16 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const { userProfile } = useAuth();
 
+  React.useEffect(() => {
+    const handleTabChange = (e: any) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('changeTab', handleTabChange);
+    return () => window.removeEventListener('changeTab', handleTabChange);
+  }, [setActiveTab]);
+
   // If user is just a member, they only see their dashboard
   const isStandardMember = userProfile?.role === 'Member';
 

@@ -26,17 +26,29 @@ export function Governance() {
 
   const isAdmin = currentUser?.email?.toLowerCase().startsWith('bijoy.mm112');
 
+  const defaultConstitution = `The written rules governing the operations of Yield Organization:
+- Membership: Open to individuals over 18 years of age. Requires a one-time admission fee and regular monthly contributions.
+- Monthly Dues: Must be paid by the 10th of every month. Late payments incur a fine.
+- Loans: Members can apply for loans up to 3x their total contribution after 6 months of active membership. Interest rate is fixed at 5% per annum.
+- Profit Sharing: Net profits generated from loan interest and investments are distributed annually as dividends based on member contribution ratio.
+- Meetings: General body meetings are held quarterly. Emergency meetings can be called by the President with 48 hours notice.`;
+
+  const defaultEthics = `Unwritten and ethical rules that all members are expected to uphold:
+- Transparency: All financial records and meeting minutes are open for inspection by any active member upon request.
+- Privacy: Personal and financial information of members (especially loan details) must be kept strictly confidential by the executive committee.
+- Neutrality: Decisions regarding loan approvals and dispute resolutions must be made objectively, without personal bias or favoritism.`;
+
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'governance'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setConstitutionText(data.constitution || 'No constitution rules set yet.');
-        setEthicsText(data.ethics || 'No ethical guidelines set yet.');
+        setConstitutionText(data.constitution || defaultConstitution);
+        setEthicsText(data.ethics || defaultEthics);
       } else {
-        setConstitutionText('No constitution rules set yet.');
-        setEthicsText('No ethical guidelines set yet.');
+        setConstitutionText(defaultConstitution);
+        setEthicsText(defaultEthics);
       }
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/governance'));
     return unsub;
   }, []);
 

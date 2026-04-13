@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { startCronJobs } from "./src/server/cron.js";
+import { startCronJobs } from "./src/server/cron.ts";
 import admin from 'firebase-admin';
 
 async function startServer() {

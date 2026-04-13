@@ -26,7 +26,7 @@ export function MemberDashboard() {
         setDailyFine(docSnap.data().dailyFineAmount || 0);
         setMonthlyFee(docSnap.data().monthlyFeeAmount || 0);
       }
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
     return unsubSettings;
   }, []);
 

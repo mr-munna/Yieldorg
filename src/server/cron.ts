@@ -3,7 +3,8 @@ import admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import twilio from 'twilio';
 import dotenv from 'dotenv';
-import { generateTransparencyReport, ReportData } from './pdfGenerator.js';
+import { generateTransparencyReport } from './pdfGenerator.ts';
+import type { ReportData } from './pdfGenerator.ts';
 
 dotenv.config();
 
@@ -199,13 +200,13 @@ export function startCronJobs() {
   cron.schedule('0 9 11 * *', () => {
     console.log('Triggering payment reminders...');
     processReminders();
-  }, { scheduled: true, timezone: "America/New_York" });
+  }, { timezone: "America/New_York" });
 
   // Transparency Report Cron: 1st of every month at 10:00 AM (Reports on the previous month)
   cron.schedule('0 10 1 * *', () => {
     console.log('Triggering monthly transparency report...');
     distributeMonthlyReport();
-  }, { scheduled: true, timezone: "America/New_York" });
+  }, { timezone: "America/New_York" });
 
   console.log('Cron jobs initialized.');
 }
