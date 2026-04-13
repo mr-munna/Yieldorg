@@ -21,6 +21,8 @@ export function Members() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [roleModalMember, setRoleModalMember] = useState<Member | null>(null);
 
+  const canBroadcast = ['admin', 'president', 'secretary'].includes(userProfile?.role?.toLowerCase() || '');
+
   useEffect(() => {
     const q = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -110,6 +112,7 @@ export function Members() {
         type: 'broadcast',
         senderId: userProfile?.uid,
         senderName: userProfile?.name,
+        senderRole: userProfile?.role,
         createdAt: serverTimestamp()
       });
       setShowBroadcastModal(false);
@@ -144,8 +147,8 @@ export function Members() {
           <h2 className="text-2xl font-bold text-slate-900">Member Management</h2>
           <p className="text-slate-500 mt-1">Manage society members, roles, and approve new requests.</p>
         </div>
-        {isAdmin && (
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          {canBroadcast && (
             <button 
               onClick={() => setShowBroadcastModal(true)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -153,6 +156,8 @@ export function Members() {
               <Megaphone size={18} />
               Broadcast Message
             </button>
+          )}
+          {isAdmin && (
             <button 
               onClick={() => setShowAddModal(true)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -160,8 +165,8 @@ export function Members() {
               <Plus size={18} />
               Add Member
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {showBroadcastModal && (

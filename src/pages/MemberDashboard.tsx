@@ -364,7 +364,7 @@ export function MemberDashboard() {
                   <h4 className="font-bold text-slate-900 text-sm mb-1">{notif.title}</h4>
                   <p className="text-slate-600 text-sm whitespace-pre-wrap">{notif.message}</p>
                   <div className="mt-3 text-xs text-slate-400 flex justify-between items-center">
-                    <span>By {notif.senderName}</span>
+                    <span>By {notif.senderRole || notif.senderName}</span>
                     <span>{notif.createdAt?.toDate().toLocaleDateString() || 'Just now'}</span>
                   </div>
                 </div>
