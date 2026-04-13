@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, DollarSign, Scale, Archive, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, Scale, Archive, Menu, X, LogOut, MessageSquare } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../lib/firebase';
@@ -33,6 +33,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const navItems = !isPrivileged ? [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
     { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
+    { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
     { id: 'governance', label: 'Governance', icon: Scale },
     { id: 'inventory', label: 'Inventory & Tools', icon: Archive },
@@ -40,6 +41,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
     { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
     { id: 'members', label: 'Member Management', icon: Users },
+    { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
     { id: 'governance', label: 'Governance', icon: Scale },
     { id: 'inventory', label: 'Inventory & Tools', icon: Archive },

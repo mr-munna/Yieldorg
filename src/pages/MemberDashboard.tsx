@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard } from 'lucide-react';
+import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
 import { Payment } from '../types';
+import { orderBy, limit } from 'firebase/firestore';
 
 export function MemberDashboard() {
   const { userProfile, currentUser, loading: authLoading } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dailyFine, setDailyFine] = useState(0);
   const [monthlyFee, setMonthlyFee] = useState(0);
@@ -52,7 +54,20 @@ export function MemberDashboard() {
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Fetch Notifications
+    const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
+    const unsubNotifs = onSnapshot(qNotif, (snapshot) => {
+      const notifs: any[] = [];
+      snapshot.forEach((doc) => {
+        notifs.push({ id: doc.id, ...doc.data() });
+      });
+      setNotifications(notifs);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
+
+    return () => {
+      unsubscribe();
+      unsubNotifs();
+    };
   }, [currentUser, userProfile, authLoading]);
 
   const calculateFine = (payment: Payment) => {
@@ -275,72 +290,91 @@ export function MemberDashboard() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-2">
-          <Calendar className="text-slate-400" size={20} />
-          <h3 className="text-lg font-bold text-slate-900">Monthly Breakdown</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+            <Calendar className="text-slate-400" size={20} />
+            <h3 className="text-lg font-bold text-slate-900">Monthly Breakdown</h3>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-sm">
+                  <th className="px-6 py-4 font-medium">Month</th>
+                  <th className="px-6 py-4 font-medium">Amount Due</th>
+                  <th className="px-6 py-4 font-medium">Fine</th>
+                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-900">{payment.month}</td>
+                    <td className="px-6 py-4 text-slate-600">{formatCurrency(payment.amountDue)}</td>
+                    <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(calculateFine(payment))}</td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-medium",
+                        payment.status === 'Paid' ? "bg-emerald-100 text-emerald-700" :
+                        payment.status === 'Verifying' ? "bg-blue-100 text-blue-700" :
+                        payment.status === 'Pending' ? "bg-amber-100 text-amber-700" :
+                        "bg-rose-100 text-rose-700"
+                      )}>
+                        {payment.status === 'Verifying' ? 'Verifying' : payment.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {payment.status !== 'Paid' && payment.status !== 'Verifying' && (
+                        <button 
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setShowPayModal(true);
+                          }}
+                          className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Pay Now
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {payments.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                      No payment records found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-sm">
-                <th className="px-6 py-4 font-medium">Month</th>
-                <th className="px-6 py-4 font-medium">Due Date</th>
-                <th className="px-6 py-4 font-medium">Amount Due</th>
-                <th className="px-6 py-4 font-medium">Amount Paid</th>
-                <th className="px-6 py-4 font-medium">Method</th>
-                <th className="px-6 py-4 font-medium">Transaction ID</th>
-                <th className="px-6 py-4 font-medium">Fine</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {payments.map((payment) => (
-                <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{payment.month}</td>
-                  <td className="px-6 py-4 text-slate-600 text-sm">{payment.dueDate}</td>
-                  <td className="px-6 py-4 text-slate-600">{formatCurrency(payment.amountDue)}</td>
-                  <td className="px-6 py-4 font-medium text-slate-900">{formatCurrency(payment.amountPaid)}</td>
-                  <td className="px-6 py-4 text-slate-600 text-sm">{payment.paymentMethod || '-'}</td>
-                  <td className="px-6 py-4 text-slate-600 text-xs font-mono">{payment.transactionId || '-'}</td>
-                  <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(calculateFine(payment))}</td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-full text-xs font-medium",
-                      payment.status === 'Paid' ? "bg-emerald-100 text-emerald-700" :
-                      payment.status === 'Verifying' ? "bg-blue-100 text-blue-700" :
-                      payment.status === 'Pending' ? "bg-amber-100 text-amber-700" :
-                      "bg-rose-100 text-rose-700"
-                    )}>
-                      {payment.status === 'Verifying' ? 'Verifying' : payment.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {payment.status !== 'Paid' && payment.status !== 'Verifying' && (
-                      <button 
-                        onClick={() => {
-                          setSelectedPayment(payment);
-                          setShowPayModal(true);
-                        }}
-                        className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Pay Now
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {payments.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-slate-500">
-                    No payment records found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-fit">
+          <div className="flex items-center gap-2 mb-6">
+            <Megaphone className="text-indigo-600" size={20} />
+            <h3 className="text-lg font-bold text-slate-900">Notice Board</h3>
+          </div>
+          <div className="space-y-4">
+            {notifications.length > 0 ? (
+              notifications.map((notif) => (
+                <div key={notif.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                  <h4 className="font-bold text-slate-900 text-sm mb-1">{notif.title}</h4>
+                  <p className="text-slate-600 text-sm whitespace-pre-wrap">{notif.message}</p>
+                  <div className="mt-3 text-xs text-slate-400 flex justify-between items-center">
+                    <span>By {notif.senderName}</span>
+                    <span>{notif.createdAt?.toDate().toLocaleDateString() || 'Just now'}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-slate-500 py-8 text-sm">
+                No recent announcements.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

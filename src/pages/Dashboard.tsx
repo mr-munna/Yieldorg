@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Target, AlertCircle, Calendar } from 'lucide-react';
+import { Users, Target, AlertCircle, Calendar, Megaphone } from 'lucide-react';
 import { formatCurrency } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
 import { Payment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,6 +18,7 @@ export function Dashboard() {
     monthlyFeeAmount: 0
   });
   const [chartData, setChartData] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [orgAge, setOrgAge] = useState('');
 
@@ -135,10 +136,21 @@ export function Dashboard() {
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'payments'));
 
+    // Fetch Notifications
+    const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
+    const unsubNotifs = onSnapshot(qNotif, (snapshot) => {
+      const notifs: any[] = [];
+      snapshot.forEach((doc) => {
+        notifs.push({ id: doc.id, ...doc.data() });
+      });
+      setNotifications(notifs);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
+
     return () => {
       unsubSettings();
       unsubUsers();
       unsubPayments();
+      unsubNotifs();
     };
   }, []);
 
@@ -239,32 +251,59 @@ export function Dashboard() {
         })}
       </div>
 
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-900 mb-6">Collection vs Target (Last 6 Months)</h3>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorCollected" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `৳${value}`} />
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <Tooltip 
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                formatter={(value: number) => [formatCurrency(value), undefined]}
-              />
-              <Area type="monotone" dataKey="target" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorTarget)" name="Target" />
-              <Area type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCollected)" name="Collected" />
-            </AreaChart>
-          </ResponsiveContainer>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-900 mb-6">Collection vs Target (Last 6 Months)</h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCollected" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `৳${value}`} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  formatter={(value: number) => [formatCurrency(value), undefined]}
+                />
+                <Area type="monotone" dataKey="target" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorTarget)" name="Target" />
+                <Area type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCollected)" name="Collected" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 mb-6">
+            <Megaphone className="text-indigo-600" size={20} />
+            <h3 className="text-lg font-bold text-slate-900">Notice Board</h3>
+          </div>
+          <div className="space-y-4">
+            {notifications.length > 0 ? (
+              notifications.map((notif) => (
+                <div key={notif.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                  <h4 className="font-bold text-slate-900 text-sm mb-1">{notif.title}</h4>
+                  <p className="text-slate-600 text-sm whitespace-pre-wrap">{notif.message}</p>
+                  <div className="mt-3 text-xs text-slate-400 flex justify-between items-center">
+                    <span>By {notif.senderName}</span>
+                    <span>{notif.createdAt?.toDate().toLocaleDateString() || 'Just now'}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-slate-500 py-8 text-sm">
+                No recent announcements.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

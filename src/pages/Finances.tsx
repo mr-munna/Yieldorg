@@ -174,89 +174,93 @@ export function Finances() {
             <option value="2026-03">March 2026</option>
             <option value="2026-02">February 2026</option>
           </select>
-          <button 
-            onClick={handleExport}
-            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
-          >
-            <Download size={18} />
-            Export CSV
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={handleExport}
+              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <Download size={18} />
+              Export CSV
+            </button>
+          )}
         </div>
       </div>
 
       {/* Fine Configuration Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
-              <span className="font-bold">৳</span>
+      {isAdmin && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
+                <span className="font-bold">৳</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Monthly Fee Setup</h3>
+                <p className="text-sm text-slate-500">Set the base monthly fee for members.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-slate-900">Monthly Fee Setup</h3>
-              <p className="text-sm text-slate-500">Set the base monthly fee for members.</p>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={monthlyFee}
+                  onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                  disabled={!isAdmin}
+                  className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50 disabled:bg-slate-50"
+                />
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
+                <Settings size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Daily Late Fine Setup</h3>
+                <p className="text-sm text-slate-500">Set the fine amount added per day.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={dailyFine}
+                  onChange={(e) => setDailyFine(Number(e.target.value))}
+                  disabled={!isAdmin}
+                  className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center">
+                <Settings size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Foundation Date</h3>
+                <p className="text-sm text-slate-500">Set the organization's start date.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
               <input 
-                type="number" 
-                min="0"
-                value={monthlyFee}
-                onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                type="date" 
+                value={foundationDate}
+                onChange={(e) => setFoundationDate(e.target.value)}
                 disabled={!isAdmin}
-                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50 disabled:bg-slate-50"
+                className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 disabled:opacity-50 disabled:bg-slate-50"
               />
             </div>
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
-              <Settings size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900">Daily Late Fine Setup</h3>
-              <p className="text-sm text-slate-500">Set the fine amount added per day.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">৳</span>
-              <input 
-                type="number" 
-                min="0"
-                value={dailyFine}
-                onChange={(e) => setDailyFine(Number(e.target.value))}
-                disabled={!isAdmin}
-                className="w-32 pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center">
-              <Settings size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900">Foundation Date</h3>
-              <p className="text-sm text-slate-500">Set the organization's start date.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <input 
-              type="date" 
-              value={foundationDate}
-              onChange={(e) => setFoundationDate(e.target.value)}
-              disabled={!isAdmin}
-              className="w-40 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 disabled:opacity-50 disabled:bg-slate-50"
-            />
-          </div>
-        </div>
-      </div>
+      )}
 
       {isAdmin && (
         <div className="flex justify-end">
