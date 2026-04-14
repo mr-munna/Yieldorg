@@ -156,9 +156,7 @@ export function Login() {
           </div>
           
           <div className="relative z-10">
-            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-white text-3xl shadow-lg shadow-emerald-500/20 mx-auto mb-4 ring-4 ring-emerald-800/50">
-              YO
-            </div>
+            <img src="/logo.png" alt="Yield Organization Logo" className="w-16 h-16 rounded-2xl object-contain bg-white p-1 shadow-lg shadow-emerald-500/20 mx-auto mb-4 ring-4 ring-emerald-800/50" />
             <h1 className="text-2xl font-bold text-white tracking-tight">Yield Organization</h1>
             <p className="text-emerald-200/90 mt-2 text-sm font-medium">
               {isLogin ? "Member Portal Access" : "Join our community of investors"}

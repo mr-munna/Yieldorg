@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Target, AlertCircle, Calendar, Megaphone } from 'lucide-react';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, formatDate } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
@@ -305,7 +305,7 @@ export function Dashboard() {
                   <p className="text-slate-600 text-sm whitespace-pre-wrap">{notif.message}</p>
                   <div className="mt-3 text-xs text-slate-400 flex justify-between items-center">
                     <span>By {notif.senderRole || notif.senderName}</span>
-                    <span>{notif.createdAt?.toDate().toLocaleDateString() || 'Just now'}</span>
+                    <span>{notif.createdAt ? formatDate(notif.createdAt.toDate()) : 'Just now'}</span>
                   </div>
                 </div>
               ))

@@ -1,5 +1,5 @@
 {
   "name": "Yield Organization Management",
   "description": "A comprehensive management structure and data tracking system for the Yield Organization cooperative society.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["microphone", "camera"]
 }

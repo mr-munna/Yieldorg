@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency, cn, formatDate } from '../lib/utils';
 import { Download, Settings, Save } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
@@ -55,10 +55,8 @@ export function Finances() {
         monthlyFeeAmount: monthlyFee,
         foundationDate: foundationDate
       }, { merge: true });
-      alert('Settings updated successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/general');
-      alert('Failed to update settings.');
     }
     setIsSavingFine(false);
   };
@@ -68,10 +66,8 @@ export function Finances() {
       await updateDoc(doc(db, 'payments', paymentId), {
         status: 'Paid'
       });
-      alert('Payment approved successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `payments/${paymentId}`);
-      alert('Failed to approve payment.');
     }
   };
 
@@ -309,8 +305,8 @@ export function Finances() {
                   <td className="px-6 py-4 font-medium text-slate-900">{formatCurrency(payment.amountPaid)}</td>
                   <td className="px-6 py-4 text-slate-600 text-sm">{payment.paymentMethod || '-'}</td>
                   <td className="px-6 py-4 text-slate-600 text-xs font-mono">{payment.transactionId || '-'}</td>
-                  <td className="px-6 py-4 text-slate-600 text-sm">{payment.dueDate}</td>
-                  <td className="px-6 py-4 text-slate-600 text-sm">{payment.paidDate || '-'}</td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(payment.dueDate)}</td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(payment.paidDate)}</td>
                   <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(payment.dynamicFine)}</td>
                   <td className="px-6 py-4">
                     <span className={cn(

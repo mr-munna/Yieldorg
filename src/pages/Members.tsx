@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, MoreVertical, CheckCircle, XCircle, X, Megaphone } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Member } from '../types';
@@ -118,10 +118,8 @@ export function Members() {
       setShowBroadcastModal(false);
       setBroadcastTitle('');
       setBroadcastMessage('');
-      alert('Broadcast message sent to all members successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'notifications');
-      alert('Failed to send broadcast message.');
     } finally {
       setIsBroadcasting(false);
     }
@@ -356,7 +354,7 @@ export function Members() {
                     <div>{member.email}</div>
                     <div className="text-xs text-slate-400">{member.phone}</div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 text-sm">{member.joinDate}</td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(member.joinDate)}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-fit",

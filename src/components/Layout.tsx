@@ -1,9 +1,10 @@
 import React from 'react';
-import { LayoutDashboard, Users, DollarSign, Scale, Archive, Menu, X, LogOut, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, User, DollarSign, Scale, Archive, Menu, X, LogOut, MessageSquare } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
@@ -15,6 +16,54 @@ interface LayoutProps {
 export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const { userProfile } = useAuth();
+  const initialLoadRef = React.useRef(true);
+
+  React.useEffect(() => {
+    // Request notification permission
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!userProfile?.uid) return;
+
+    const qChats = query(
+      collection(db, 'chats'), 
+      where('participants', 'array-contains', userProfile.uid)
+    );
+
+    const unsubChats = onSnapshot(qChats, (snapshot) => {
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'modified' || change.type === 'added') {
+          const data = change.doc.data();
+          // Check if there's a new message and it's not from the current user
+          if (data.lastMessageSender && data.lastMessageSender !== userProfile.name) {
+            // Show notification if permission granted
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const notification = new Notification(`New message from ${data.lastMessageSender}`, {
+                body: data.lastMessage,
+                icon: '/favicon.svg'
+              });
+              
+              notification.onclick = () => {
+                window.focus();
+                setActiveTab('messages');
+                notification.close();
+              };
+            }
+          }
+        }
+      });
+    });
+
+    return () => unsubChats();
+  }, [userProfile, setActiveTab]);
 
   React.useEffect(() => {
     const handleTabChange = (e: any) => {
@@ -32,14 +81,14 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
 
   const navItems = !isPrivileged ? [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
-    { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
+    { id: 'member-dashboard', label: 'My Dashboard', icon: User },
     { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
     { id: 'governance', label: 'Governance', icon: Scale },
     { id: 'inventory', label: 'Inventory & Tools', icon: Archive },
   ] : [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
-    { id: 'member-dashboard', label: 'My Dashboard', icon: Users },
+    { id: 'member-dashboard', label: 'My Dashboard', icon: User },
     { id: 'members', label: 'Member Management', icon: Users },
     { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
@@ -56,9 +105,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       {/* Mobile Header */}
       <div className="md:hidden bg-emerald-900 text-white p-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-white">
-            YO
-          </div>
+          <img src="/logo.png" alt="Yield Organization Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5" />
           <span className="font-semibold text-lg">Yield Org</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-1">
@@ -82,9 +129,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
         )}
       >
         <div className="p-6 hidden md:flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center font-bold text-white text-xl shadow-lg shadow-emerald-500/20">
-            YO
-          </div>
+          <img src="/logo.png" alt="Yield Organization Logo" className="w-10 h-10 rounded-xl object-contain bg-white p-1 shadow-lg shadow-emerald-500/20" />
           <div>
             <h1 className="font-bold text-white text-lg leading-tight">Yield</h1>
             <p className="text-emerald-400 text-xs font-medium tracking-wider uppercase">Organization</p>
