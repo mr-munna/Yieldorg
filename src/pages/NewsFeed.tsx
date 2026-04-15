@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { Newspaper, Plus, Trash2, X, Image as ImageIcon } from 'lucide-react';
+import { Newspaper, Plus, Trash2, X, Image as ImageIcon, Edit } from 'lucide-react';
 
 interface NewsPost {
   id: string;
@@ -21,6 +21,7 @@ export function NewsFeed() {
   const [loading, setLoading] = useState(true);
   const [showNewPostModal, setShowNewPostModal] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<NewsPost | null>(null);
   
   // New Post State
   const [title, setTitle] = useState('');
@@ -90,7 +91,23 @@ export function NewsFeed() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
+  const handleEditClick = (post: NewsPost) => {
+    setEditingPost(post);
+    setTitle(post.title);
+    setContent(post.content);
+    setImagesBase64(post.imageUrls || (post.imageUrl ? [post.imageUrl] : []));
+    setShowNewPostModal(true);
+  };
+
+  const closeModal = () => {
+    setShowNewPostModal(false);
+    setEditingPost(null);
+    setTitle('');
+    setContent('');
+    setImagesBase64([]);
+  };
+
+  const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !userProfile) return;
 
@@ -99,23 +116,26 @@ export function NewsFeed() {
       const postData: any = {
         title: title.trim(),
         content: content.trim(),
-        authorId: userProfile.uid,
-        authorName: userProfile.name,
-        createdAt: serverTimestamp()
       };
 
       if (imagesBase64.length > 0) {
         postData.imageUrls = imagesBase64;
+      } else {
+        postData.imageUrls = [];
       }
 
-      await addDoc(collection(db, 'news'), postData);
+      if (editingPost) {
+        await updateDoc(doc(db, 'news', editingPost.id), postData);
+      } else {
+        postData.authorId = userProfile.uid;
+        postData.authorName = userProfile.name;
+        postData.createdAt = serverTimestamp();
+        await addDoc(collection(db, 'news'), postData);
+      }
       
-      setTitle('');
-      setContent('');
-      setImagesBase64([]);
-      setShowNewPostModal(false);
+      closeModal();
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'news');
+      handleFirestoreError(error, editingPost ? OperationType.UPDATE : OperationType.CREATE, 'news');
     } finally {
       setIsSubmitting(false);
     }
@@ -191,13 +211,22 @@ export function NewsFeed() {
                 <div className="flex justify-between items-start gap-4 mb-4">
                   <h2 className="text-xl font-bold text-slate-900">{post.title}</h2>
                   {canPost && (
-                    <button 
-                      onClick={() => setPostToDelete(post.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
-                      title="Delete Post"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button 
+                        onClick={() => handleEditClick(post)}
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Edit Post"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button 
+                        onClick={() => setPostToDelete(post.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Delete Post"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <p className="text-slate-700 whitespace-pre-wrap leading-relaxed mb-6">
@@ -213,21 +242,21 @@ export function NewsFeed() {
         )}
       </div>
 
-      {/* New Post Modal */}
+      {/* New/Edit Post Modal */}
       {showNewPostModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-slate-900">Create News Post</h2>
+              <h2 className="text-xl font-bold text-slate-900">{editingPost ? 'Edit News Post' : 'Create News Post'}</h2>
               <button 
-                onClick={() => setShowNewPostModal(false)}
+                onClick={closeModal}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X size={24} />
               </button>
             </div>
             
-            <form onSubmit={handleCreatePost} className="p-6 overflow-y-auto flex-1">
+            <form onSubmit={handleSubmitPost} className="p-6 overflow-y-auto flex-1">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
@@ -295,7 +324,7 @@ export function NewsFeed() {
               <div className="mt-8 flex justify-end gap-3">
                 <button 
                   type="button"
-                  onClick={() => setShowNewPostModal(false)}
+                  onClick={closeModal}
                   className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
                 >
                   Cancel
@@ -305,7 +334,7 @@ export function NewsFeed() {
                   disabled={isSubmitting || !title.trim() || !content.trim()}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Posting...' : 'Publish Post'}
+                  {isSubmitting ? (editingPost ? 'Updating...' : 'Posting...') : (editingPost ? 'Update Post' : 'Publish Post')}
                 </button>
               </div>
             </form>
