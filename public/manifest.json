@@ -6,6 +6,27 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#064e3b",
+  "id": "/",
+  "orientation": "portrait",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["business", "finance", "productivity"],
+  "screenshots": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Yield Organization Desktop View"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Yield Organization Mobile View"
+    }
+  ],
   "icons": [
     {
       "src": "/logo.png",
