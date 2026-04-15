@@ -12,6 +12,7 @@ interface NewsPost {
   authorName: string;
   createdAt: any;
   imageUrl?: string;
+  imageUrls?: string[];
 }
 
 export function NewsFeed() {
@@ -19,11 +20,12 @@ export function NewsFeed() {
   const [posts, setPosts] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewPostModal, setShowNewPostModal] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
   
   // New Post State
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imagesBase64, setImagesBase64] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,42 +47,47 @@ export function NewsFeed() {
   }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
-        
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
           }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        setImageBase64(canvas.toDataURL('image/jpeg', 0.8));
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          setImagesBase64(prev => [...prev, canvas.toDataURL('image/jpeg', 0.8)]);
+        };
+        img.src = event.target?.result as string;
       };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file as Blob);
+    });
+    
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -97,15 +104,15 @@ export function NewsFeed() {
         createdAt: serverTimestamp()
       };
 
-      if (imageBase64) {
-        postData.imageUrl = imageBase64;
+      if (imagesBase64.length > 0) {
+        postData.imageUrls = imagesBase64;
       }
 
       await addDoc(collection(db, 'news'), postData);
       
       setTitle('');
       setContent('');
-      setImageBase64(null);
+      setImagesBase64([]);
       setShowNewPostModal(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'news');
@@ -114,10 +121,11 @@ export function NewsFeed() {
     }
   };
 
-  const handleDeletePost = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
+  const confirmDelete = async () => {
+    if (!postToDelete) return;
     try {
-      await deleteDoc(doc(db, 'news', id));
+      await deleteDoc(doc(db, 'news', postToDelete));
+      setPostToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'news');
     }
@@ -157,12 +165,25 @@ export function NewsFeed() {
         ) : (
           posts.map((post) => (
             <div key={post.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              {post.imageUrl && (
-                <div className="w-full h-64 sm:h-80 bg-slate-100 relative">
+              {post.imageUrls && post.imageUrls.length > 0 && (
+                <div className={`grid gap-2 p-4 bg-slate-50 ${post.imageUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {post.imageUrls.map((url, idx) => (
+                    <div key={idx} className="w-full flex justify-center rounded-xl overflow-hidden bg-white/50">
+                      <img 
+                        src={url} 
+                        alt={`${post.title} - image ${idx + 1}`} 
+                        className="max-h-[500px] w-auto object-contain rounded-xl"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {post.imageUrl && (!post.imageUrls || post.imageUrls.length === 0) && (
+                <div className="w-full bg-slate-50 flex justify-center p-4">
                   <img 
                     src={post.imageUrl} 
                     alt={post.title} 
-                    className="w-full h-full object-cover"
+                    className="max-h-[500px] w-auto object-contain rounded-xl"
                   />
                 </div>
               )}
@@ -171,7 +192,7 @@ export function NewsFeed() {
                   <h2 className="text-xl font-bold text-slate-900">{post.title}</h2>
                   {canPost && (
                     <button 
-                      onClick={() => handleDeletePost(post.id)}
+                      onClick={() => setPostToDelete(post.id)}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
                       title="Delete Post"
                     >
@@ -233,33 +254,38 @@ export function NewsFeed() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Cover Image (Optional)</label>
-                  <div className="flex items-center gap-4">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Images (Optional)</label>
+                  <div className="flex flex-col gap-4">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 hover:border-emerald-500/50 transition-colors w-full"
                     >
-                      <ImageIcon size={18} />
-                      Choose Image
+                      <ImageIcon size={20} />
+                      <span className="font-medium">Add Images</span>
                     </button>
                     <input 
                       type="file" 
                       ref={fileInputRef}
                       onChange={handleImageUpload}
                       accept="image/*"
+                      multiple
                       className="hidden"
                     />
-                    {imageBase64 && (
-                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
-                        <img src={imageBase64} alt="Preview" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => setImageBase64(null)}
-                          className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
-                        >
-                          <X size={12} />
-                        </button>
+                    {imagesBase64.length > 0 && (
+                      <div className="flex flex-wrap gap-3">
+                        {imagesBase64.map((img, idx) => (
+                          <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 group">
+                            <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setImagesBase64(prev => prev.filter((_, i) => i !== idx))}
+                              className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -283,6 +309,29 @@ export function NewsFeed() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {postToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Post</h3>
+            <p className="text-slate-600 mb-6">Are you sure you want to delete this post? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setPostToDelete(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium py-2 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
