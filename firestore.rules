@@ -112,6 +112,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /news/{newsId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if canBroadcast();
+    }
+
     match /chats/{chatId} {
       allow read: if isAuthenticated() && (
         chatId.matches('.*' + request.auth.uid + '.*') ||

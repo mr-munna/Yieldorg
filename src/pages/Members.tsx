@@ -262,7 +262,7 @@ export function Members() {
         </div>
       )}
 
-      {pendingRequests.length > 0 && (
+      {isAdmin && pendingRequests.length > 0 && (
         <div className="bg-amber-50 rounded-2xl shadow-sm border border-amber-200 overflow-hidden">
           <div className="p-4 border-b border-amber-200 bg-amber-100/50">
             <h3 className="font-bold text-amber-900">Pending Registration Requests ({pendingRequests.length})</h3>

@@ -6,6 +6,7 @@ import { Finances } from './pages/Finances';
 import { Governance } from './pages/Governance';
 import { Inventory } from './pages/Inventory';
 import { Messages } from './pages/Messages';
+import { NewsFeed } from './pages/NewsFeed';
 import { Login } from './pages/Login';
 import { MemberDashboard } from './pages/MemberDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -67,8 +68,10 @@ function AppContent() {
         return <Dashboard />;
       case 'member-dashboard':
         return <MemberDashboard />;
+      case 'news-feed':
+        return <NewsFeed />;
       case 'members':
-        return isPrivileged ? <Members /> : <MemberDashboard />;
+        return <Members />;
       case 'messages':
         return <Messages />;
       case 'finances':

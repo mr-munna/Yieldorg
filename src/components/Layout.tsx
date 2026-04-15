@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, User, DollarSign, Scale, Archive, Menu, X, LogOut, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, User, DollarSign, Scale, Archive, Menu, X, LogOut, MessageSquare, Newspaper } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from '../lib/firebase';
@@ -79,17 +79,11 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const userRole = (userProfile?.role || '').toLowerCase();
   const isPrivileged = ['admin', 'president', 'secretary', 'treasurer'].includes(userRole);
 
-  const navItems = !isPrivileged ? [
-    { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
-    { id: 'member-dashboard', label: 'My Dashboard', icon: User },
-    { id: 'messages', label: 'Messages', icon: MessageSquare },
-    { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
-    { id: 'governance', label: 'Governance', icon: Scale },
-    { id: 'inventory', label: 'Inventory & Tools', icon: Archive },
-  ] : [
+  const navItems = [
     { id: 'dashboard', label: 'Yield Dashboard', icon: LayoutDashboard },
     { id: 'member-dashboard', label: 'My Dashboard', icon: User },
     { id: 'members', label: 'Member Management', icon: Users },
+    { id: 'news-feed', label: 'News Feed', icon: Newspaper },
     { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'finances', label: 'Financial Tracker', icon: DollarSign },
     { id: 'governance', label: 'Governance', icon: Scale },
