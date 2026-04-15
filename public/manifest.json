@@ -13,31 +13,25 @@
   "categories": ["business", "finance", "productivity"],
   "screenshots": [
     {
-      "src": "https://yieldorg.vercel.app/logo.png",
+      "src": "/logo.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "form_factor": "wide",
       "label": "Yield Organization Desktop View"
     },
     {
-      "src": "https://yieldorg.vercel.app/logo.png",
+      "src": "/logo.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "form_factor": "narrow",
       "label": "Yield Organization Mobile View"
     }
   ],
   "icons": [
     {
-      "src": "https://yieldorg.vercel.app/logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://yieldorg.vercel.app/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]
