@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
-import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone, ShieldCheck, Edit2, Trash2, Save } from 'lucide-react';
+import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone, ShieldCheck, Edit2, Trash2, Save, Receipt, Info, Clock, Coins, ChevronRight } from 'lucide-react';
 import { formatCurrency, cn, formatDate } from '../lib/utils';
 import { Payment } from '../types';
 
@@ -13,6 +13,9 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(true);
   const [dailyFine, setDailyFine] = useState(0);
   const [monthlyFee, setMonthlyFee] = useState(0);
+
+  // Fine Modal State
+  const [showFineModal, setShowFineModal] = useState(false);
 
   // Broadcast Edit / Delete state
   const [editingNotif, setEditingNotif] = useState<any | null>(null);
@@ -120,9 +123,16 @@ export function MemberDashboard() {
   const totalContribution = payments
     .filter(p => p.status === 'Paid')
     .reduce((sum, p) => sum + p.amountPaid, 0);
+
+  const totalFinePaid = payments
+    .filter(p => p.status === 'Paid')
+    .reduce((sum, p) => sum + (p.fine || 0), 0);
   
   const pendingPayments = payments.filter(p => p.status !== 'Paid');
+  const totalPendingFine = pendingPayments.reduce((sum, p) => sum + calculateFine(p), 0);
   const totalPending = pendingPayments.reduce((sum, p) => sum + (p.amountDue - p.amountPaid) + calculateFine(p), 0);
+
+  const fineIncurredPayments = payments.filter(p => (p.fine || 0) > 0 || calculateFine(p) > 0);
 
   const handlePayCurrentMonth = async () => {
     if (!currentUser || !userProfile) return;
@@ -234,9 +244,9 @@ export function MemberDashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
             <span className="text-2xl font-bold">৳</span>
           </div>
           <div>
@@ -246,7 +256,7 @@ export function MemberDashboard() {
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600 shrink-0">
             <Calendar size={24} />
           </div>
           <div>
@@ -255,16 +265,140 @@ export function MemberDashboard() {
           </div>
         </div>
 
+        <div 
+          onClick={() => setShowFineModal(true)}
+          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer hover:border-purple-200 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
+              <Receipt size={22} />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium text-slate-500">Late Fine Paid</p>
+                <Info size={14} className="text-slate-400 group-hover:text-purple-600 transition-colors" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalFinePaid)}</h3>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />
+        </div>
+
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-rose-50 text-rose-600">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 shrink-0">
             <AlertCircle size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Pending Payments & Fines</p>
+            <p className="text-sm font-medium text-slate-500">Pending Dues & Fines</p>
             <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalPending)}</h3>
           </div>
         </div>
       </div>
+
+      {/* Late Fine Statement / Breakdown Modal */}
+      {showFineModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => setShowFineModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Receipt size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Late Fine Statement & Details</h3>
+                <p className="text-xs text-slate-500">মেম্বারের পরিশোধিত ও বকেয়া জরিমানা সংক্রান্ত যাবতীয় তথ্য</p>
+              </div>
+            </div>
+
+            {/* Fine Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                <p className="text-xs text-emerald-700 font-medium">পরিশোধিত জরিমানা (Paid)</p>
+                <p className="text-xl font-extrabold text-emerald-900 mt-0.5">{formatCurrency(totalFinePaid)}</p>
+              </div>
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-100">
+                <p className="text-xs text-amber-700 font-medium">চলতি বকেয়া জরিমানা (Pending)</p>
+                <p className="text-xl font-extrabold text-amber-900 mt-0.5">{formatCurrency(totalPendingFine)}</p>
+              </div>
+              <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-100">
+                <p className="text-xs text-indigo-700 font-medium">দৈনিক বিলম্ব ফি হার (Rate)</p>
+                <p className="text-xl font-extrabold text-indigo-900 mt-0.5">{formatCurrency(dailyFine)}/দিন</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs text-slate-600 mb-5 flex items-start gap-2.5">
+              <Info size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-slate-800">বিলম্ব ফি নীতি (Rule):</p>
+                <p className="mt-0.5">প্রতি মাসের ১০ তারিখের পর বকেয়া ফি পরিশোধ করলে প্রতিদিনের জন্য ৳{dailyFine} টাকা হারে লেট ফাইন যুক্ত হয়।</p>
+              </div>
+            </div>
+
+            {/* Fine Records Table */}
+            <h4 className="font-bold text-slate-900 text-sm mb-3">জরিমানা রেকর্ডসমূহ ({fineIncurredPayments.length})</h4>
+            <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 font-semibold">মাস (Month)</th>
+                    <th className="p-3 font-semibold">শেষ তারিখ</th>
+                    <th className="p-3 font-semibold">জরিমানা</th>
+                    <th className="p-3 font-semibold">স্ট্যাটাস</th>
+                    <th className="p-3 font-semibold text-right">মেথড / টিআরএক্স</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {fineIncurredPayments.map((p) => {
+                    const fineAmt = p.status === 'Paid' ? (p.fine || 0) : calculateFine(p);
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-900">{p.month}</td>
+                        <td className="p-3 text-slate-500">{p.dueDate || `${p.month}-10`}</td>
+                        <td className="p-3 font-bold text-rose-600">{formatCurrency(fineAmt)}</td>
+                        <td className="p-3">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[11px] font-semibold",
+                            p.status === 'Paid' ? "bg-emerald-100 text-emerald-800" :
+                            p.status === 'Verifying' ? "bg-blue-100 text-blue-800" :
+                            "bg-amber-100 text-amber-800"
+                          )}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-500">
+                          {p.paymentMethod ? `${p.paymentMethod} (${p.transactionId || '-'})` : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {fineIncurredPayments.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-6 text-center text-slate-400">
+                        আপনার কোনো বিলম্ব ফি জমা পড়েনি! ধন্যবাদ সময়মতো পরিশোধ করার জন্য।
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowFineModal(false)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-5 py-2 rounded-xl text-xs transition-colors"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showPayModal && selectedPayment && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">

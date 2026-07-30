@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save } from 'lucide-react';
-import { formatCurrency, formatDate } from '../lib/utils';
+import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save, Receipt, Info, ChevronRight } from 'lucide-react';
+import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -25,6 +25,9 @@ export function Dashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
+
+  // Fine Breakdown modal for Admin
+  const [showFineBreakdown, setShowFineBreakdown] = useState(false);
 
   // Broadcast Edit / Delete state
   const [editingNotif, setEditingNotif] = useState<any | null>(null);
@@ -296,19 +299,105 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
+          const isFineCard = stat.title === 'Total Fine Collected';
           return (
-            <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div 
+              key={index} 
+              onClick={isFineCard ? () => setShowFineBreakdown(true) : undefined}
+              className={cn(
+                "bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4 transition-all",
+                isFineCard && "cursor-pointer hover:border-amber-300 hover:shadow-md group"
+              )}
+            >
               <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${stat.bgColor} ${stat.textColor}`}>
                 <Icon size={24} />
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">{stat.title}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-500">{stat.title}</p>
+                  {isFineCard && <ChevronRight size={16} className="text-slate-300 group-hover:text-amber-600 transition-all" />}
+                </div>
                 <h3 className="text-xl font-bold text-slate-900 mt-1">{stat.value}</h3>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Admin Member Fine Breakdown Modal */}
+      {showFineBreakdown && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => setShowFineBreakdown(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Receipt size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Member Late Fine Collection Summary</h3>
+                <p className="text-xs text-slate-500">সকল মেম্বারদের জরিমানা আদায় ও বকেয়ার মেম্বারভিত্তিক তালিকা</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-amber-800 font-medium">মোট সংগৃহীত জরিমানা (Total Fine Collected)</p>
+                <h4 className="text-2xl font-black text-amber-900 mt-0.5">{formatCurrency(stats.totalFineCollected)}</h4>
+              </div>
+              <span className="text-xs font-bold text-amber-700 bg-amber-100/80 px-3 py-1.5 rounded-full">
+                {usersList.filter(u => u.status === 'Active' && u.role !== 'Admin').length} মেম্বার হিসাব
+              </span>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 font-semibold">মেম্বার আইডি & নাম</th>
+                    <th className="p-3 font-semibold">ফোন নম্বর</th>
+                    <th className="p-3 font-semibold text-right">আদায়কৃত জরিমানা</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {usersList
+                    .filter(u => u.status === 'Active' && u.role !== 'Admin')
+                    .map(member => {
+                      const mPayments = paymentsList.filter(p => p.userId === member.id || p.memberId === member.memberId);
+                      const totalFinePaid = mPayments.filter(p => p.status === 'Paid').reduce((sum, p) => sum + (p.fine || 0), 0);
+                      return (
+                        <tr key={member.id} className="hover:bg-slate-50">
+                          <td className="p-3">
+                            <span className="font-mono text-xs font-bold text-indigo-600 block">{member.memberId || 'N/A'}</span>
+                            <span className="font-semibold text-slate-900">{member.name}</span>
+                          </td>
+                          <td className="p-3 text-slate-500 font-mono">{member.phone || '-'}</td>
+                          <td className="p-3 text-right font-bold text-amber-700 font-mono text-sm">
+                            {formatCurrency(totalFinePaid)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowFineBreakdown(false)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-5 py-2 rounded-xl text-xs transition-colors"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
