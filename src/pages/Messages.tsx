@@ -54,9 +54,11 @@ export function Messages() {
     // Fetch all active members except current user
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const allUsers: Member[] = [];
+      const isAdmin = userProfile?.role === 'Admin';
       snapshot.forEach((doc) => {
         const data = doc.data() as Member;
         if (data.status === 'Active' && doc.id !== userProfile?.uid) {
+          if (!isAdmin && data.role === 'Admin') return;
           allUsers.push({ ...data, id: doc.id });
         }
       });

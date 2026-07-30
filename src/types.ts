@@ -19,10 +19,12 @@ export interface Payment {
   amountPaid: number;
   dueDate: string;
   paidDate?: string;
-  status: 'Paid' | 'Pending' | 'Late';
+  status: 'Paid' | 'Pending' | 'Verifying' | 'Late';
   fine: number;
   paymentMethod?: string;
   transactionId?: string;
+  approvedBy?: string;
+  submittedBy?: string;
 }
 
 export interface InventoryItem {

@@ -27,8 +27,12 @@
         "amountPaid": { "type": "number" },
         "dueDate": { "type": "string", "format": "date" },
         "paidDate": { "type": "string", "format": "date" },
-        "status": { "type": "string", "enum": ["Paid", "Pending", "Late"] },
-        "fine": { "type": "number" }
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Late", "Verifying"] },
+        "fine": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "submittedBy": { "type": "string" }
       },
       "required": ["userId", "memberId", "month", "amountDue", "amountPaid", "dueDate", "status", "fine"]
     }

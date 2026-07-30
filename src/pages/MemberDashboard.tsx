@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone } from 'lucide-react';
+import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone, ShieldCheck } from 'lucide-react';
 import { formatCurrency, cn, formatDate } from '../lib/utils';
 import { Payment } from '../types';
 import { orderBy, limit } from 'firebase/firestore';
@@ -103,6 +103,10 @@ export function MemberDashboard() {
 
   const handlePayCurrentMonth = async () => {
     if (!currentUser || !userProfile) return;
+    if (userProfile.role === 'Admin') {
+      alert('Admin accounts are exempt from submitting payments.');
+      return;
+    }
     const currentMonth = new Date().toISOString().slice(0, 7);
     
     // Check if there's already a payment for this month
@@ -151,6 +155,11 @@ export function MemberDashboard() {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPayment) return;
+    if (userProfile?.role === 'Admin') {
+      alert('Admin accounts are exempt from submitting payments.');
+      setShowPayModal(false);
+      return;
+    }
     setIsSubmitting(true);
     
     const finalFine = calculateFine(selectedPayment);
@@ -163,7 +172,8 @@ export function MemberDashboard() {
         fine: finalFine,
         paidDate: new Date().toISOString().split('T')[0],
         paymentMethod,
-        transactionId
+        transactionId,
+        submittedBy: userProfile?.email || userProfile?.name || 'Member'
       });
       setShowPayModal(false);
       setSelectedPayment(null);
@@ -185,13 +195,20 @@ export function MemberDashboard() {
           <h2 className="text-2xl font-bold text-slate-900">Welcome back, {userProfile?.name}</h2>
           <p className="text-slate-500 mt-1">Member ID: <span className="font-mono text-slate-700">{userProfile?.memberId}</span></p>
         </div>
-        <button 
-          onClick={handlePayCurrentMonth}
-          className="bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
-        >
-          <CreditCard size={18} />
-          Pay Now
-        </button>
+        {userProfile?.role === 'Admin' ? (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm">
+            <ShieldCheck size={18} className="text-amber-600 shrink-0" />
+            <span>Admin Account (Exempt from Dues & Payment Submission)</span>
+          </div>
+        ) : (
+          <button 
+            onClick={handlePayCurrentMonth}
+            className="bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+          >
+            <CreditCard size={18} />
+            Pay Now
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -316,6 +333,8 @@ export function MemberDashboard() {
                   <th className="px-6 py-4 font-medium">Amount Due</th>
                   <th className="px-6 py-4 font-medium">Fine</th>
                   <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium">Submitted By</th>
+                  <th className="px-6 py-4 font-medium">Approved By</th>
                   <th className="px-6 py-4 font-medium text-right">Action</th>
                 </tr>
               </thead>
@@ -336,24 +355,44 @@ export function MemberDashboard() {
                         {payment.status === 'Verifying' ? 'Verifying' : payment.status}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-slate-600 text-xs">
+                      {payment.submittedBy ? (
+                        <span className="font-mono text-indigo-700 font-medium">{payment.submittedBy}</span>
+                      ) : (
+                        <span className="text-slate-400 font-sans italic">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 text-xs">
+                      {payment.approvedBy ? (
+                        <span className="font-mono text-emerald-700 font-medium">
+                          {userProfile?.role === 'Admin' ? payment.approvedBy : 'Admin'}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-sans italic">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right">
-                      {payment.status !== 'Paid' && payment.status !== 'Verifying' && (
-                        <button 
-                          onClick={() => {
-                            setSelectedPayment(payment);
-                            setShowPayModal(true);
-                          }}
-                          className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          Pay Now
-                        </button>
+                      {userProfile?.role === 'Admin' ? (
+                        <span className="text-slate-400 font-sans italic text-xs">Exempt (Admin)</span>
+                      ) : (
+                        payment.status !== 'Paid' && payment.status !== 'Verifying' && (
+                          <button 
+                            onClick={() => {
+                              setSelectedPayment(payment);
+                              setShowPayModal(true);
+                            }}
+                            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Pay Now
+                          </button>
+                        )
                       )}
                     </td>
                   </tr>
                 ))}
                 {payments.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                       No payment records found.
                     </td>
                   </tr>

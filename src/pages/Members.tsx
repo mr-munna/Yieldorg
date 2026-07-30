@@ -125,11 +125,14 @@ export function Members() {
     }
   };
 
-  const filteredMembers = members.filter(member => 
-    member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (member.memberId && member.memberId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    member.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMembers = members.filter(member => {
+    if (!isAdmin && member.role === 'Admin') return false;
+    return (
+      member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.memberId && member.memberId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      member.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   const pendingRequests = filteredMembers.filter(m => m.status === 'Pending');
   const activeMembers = filteredMembers.filter(m => m.status !== 'Pending').sort((a, b) => {

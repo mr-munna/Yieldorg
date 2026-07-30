@@ -65,7 +65,7 @@ export function Dashboard() {
     // Fetch Users for Total Members and Pending Count
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const allUsers = snapshot.docs.map(d => d.data());
-      const activeUsers = allUsers.filter(u => u.status === 'Active');
+      const activeUsers = allUsers.filter(u => u.status === 'Active' && u.role !== 'Admin');
       const pendingUsers = allUsers.filter(u => u.status === 'Pending');
       
       setStats(prev => ({ ...prev, totalMembers: activeUsers.length }));

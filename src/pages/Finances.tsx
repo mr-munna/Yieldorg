@@ -1,16 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, cn, formatDate } from '../lib/utils';
-import { Download, Settings, Save } from 'lucide-react';
+import { Download, Settings, Save, ShieldCheck, Mail, CheckCircle2, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Payment, Member } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
+const monthsList = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+
+const yearsList = Array.from({ length: 10 }, (_, i) => String(2023 + i));
+
 export function Finances() {
   const { userProfile } = useAuth();
   const isAdmin = userProfile?.role === 'Admin';
 
-  const [selectedMonth, setSelectedMonth] = useState('2026-04');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  });
   const [payments, setPayments] = useState<Payment[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [dailyFine, setDailyFine] = useState<number>(0);
@@ -18,6 +40,39 @@ export function Finances() {
   const [monthlyTarget, setMonthlyTarget] = useState<number>(0);
   const [foundationDate, setFoundationDate] = useState<string>('');
   const [isSavingFine, setIsSavingFine] = useState(false);
+
+  const [selectedYear, selectedMonthNum] = selectedMonth.split('-');
+
+  const handleMonthChange = (mNum: string) => {
+    setSelectedMonth(`${selectedYear || '2026'}-${mNum}`);
+  };
+
+  const handleYearChange = (yr: string) => {
+    setSelectedMonth(`${yr}-${selectedMonthNum || '07'}`);
+  };
+
+  const handlePrevMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const date = new Date(y, m - 2, 1);
+    const prevY = date.getFullYear();
+    const prevM = String(date.getMonth() + 1).padStart(2, '0');
+    setSelectedMonth(`${prevY}-${prevM}`);
+  };
+
+  const handleNextMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const date = new Date(y, m, 1);
+    const nextY = date.getFullYear();
+    const nextM = String(date.getMonth() + 1).padStart(2, '0');
+    setSelectedMonth(`${nextY}-${nextM}`);
+  };
+
+  const handleCurrentMonth = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    setSelectedMonth(`${y}-${m}`);
+  };
 
   useEffect(() => {
     // Fetch Settings
@@ -61,20 +116,30 @@ export function Finances() {
     setIsSavingFine(false);
   };
 
-  const handleApprovePayment = async (paymentId: string) => {
+  const handleApprovePayment = async (paymentItem: any) => {
     try {
-      await updateDoc(doc(db, 'payments', paymentId), {
-        status: 'Paid'
-      });
+      const docId = paymentItem.isMock ? `${paymentItem.userId}_${selectedMonth}` : paymentItem.id;
+      await setDoc(doc(db, 'payments', docId), {
+        userId: paymentItem.userId,
+        memberId: paymentItem.memberId,
+        month: selectedMonth,
+        amountDue: paymentItem.amountDue,
+        amountPaid: paymentItem.amountPaid > 0 ? paymentItem.amountPaid : paymentItem.amountDue,
+        dueDate: paymentItem.dueDate,
+        paidDate: new Date().toISOString().split('T')[0],
+        status: 'Paid',
+        fine: paymentItem.dynamicFine || 0,
+        approvedBy: userProfile?.email || userProfile?.name || 'Admin'
+      }, { merge: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `payments/${paymentId}`);
+      handleFirestoreError(error, OperationType.WRITE, `payments/${paymentItem.id}`);
     }
   };
 
-  // Join payments with member names and calculate dynamic fine
-  const activeMembers = members.filter(m => m.status === 'Active').sort((a, b) => {
-    if (a.role === 'Admin' && b.role !== 'Admin') return -1;
-    if (b.role === 'Admin' && a.role !== 'Admin') return 1;
+  const adminMembers = members.filter(m => m.role === 'Admin');
+
+  // Join payments with member names and calculate dynamic fine (Admins are exempt from dues)
+  const activeMembers = members.filter(m => m.status === 'Active' && m.role !== 'Admin').sort((a, b) => {
     const idA = a.memberId || '';
     const idB = b.memberId || '';
     return idA.localeCompare(idB);
@@ -96,6 +161,8 @@ export function Finances() {
       let paymentMethod = payment ? payment.paymentMethod : '';
       let transactionId = payment ? payment.transactionId : '';
       let paidDate = payment ? payment.paidDate : '';
+      let approvedBy = payment ? payment.approvedBy : '';
+      let submittedBy = payment?.submittedBy || (payment && payment.status !== 'Pending' ? (member.email || member.name) : '');
       
       let calculatedFine = payment?.fine || 0;
       if (status !== 'Paid') {
@@ -122,6 +189,8 @@ export function Finances() {
         status,
         paymentMethod,
         transactionId,
+        approvedBy,
+        submittedBy,
         memberName: member.name,
         dynamicFine: calculatedFine,
         isMock: !payment
@@ -129,7 +198,7 @@ export function Finances() {
     });
 
   const handleExport = () => {
-    const headers = ['Member Name', 'Member ID', 'Amount Due', 'Amount Paid', 'Due Date', 'Paid Date', 'Late Fine', 'Status', 'Payment Method', 'Transaction ID'];
+    const headers = ['Member Name', 'Member ID', 'Amount Due', 'Amount Paid', 'Due Date', 'Paid Date', 'Late Fine', 'Submitted By', 'Approved By', 'Status', 'Payment Method', 'Transaction ID'];
     const rows = paymentsWithMembers.map(p => [
       p.memberName,
       p.memberId,
@@ -138,6 +207,8 @@ export function Finances() {
       p.dueDate,
       p.paidDate || '',
       p.dynamicFine,
+      p.submittedBy || '',
+      p.approvedBy || '',
       p.status,
       p.paymentMethod || '',
       p.transactionId || ''
@@ -166,24 +237,105 @@ export function Finances() {
           <h2 className="text-2xl font-bold text-slate-900">Financial Tracker</h2>
           <p className="text-slate-500 mt-1">Track monthly dues, payments, and configure late fines.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select 
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-white border border-slate-200 text-slate-700 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
-          >
-            <option value="2026-04">April 2026</option>
-            <option value="2026-03">March 2026</option>
-            <option value="2026-02">February 2026</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Month & Year Selection Bar */}
+          <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 border border-slate-200 rounded-xl shadow-sm">
+            <div className="flex items-center gap-1.5 px-2 text-slate-500">
+              <Calendar size={18} className="text-emerald-600" />
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider hidden md:inline">Period:</span>
+            </div>
+
+            {/* Month Dropdown */}
+            <select
+              value={selectedMonthNum || '01'}
+              onChange={(e) => handleMonthChange(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-sm font-semibold py-1.5 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+            >
+              {monthsList.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+
+            {/* Year Dropdown */}
+            <select
+              value={selectedYear || '2026'}
+              onChange={(e) => handleYearChange(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-sm font-semibold py-1.5 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+            >
+              {yearsList.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+
+            {/* HTML Month Input */}
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs py-1.5 px-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+              title="Select Month & Year using Calendar Picker"
+            />
+
+            {/* Previous / Current / Next navigation buttons */}
+            <div className="flex items-center border-l border-slate-200 pl-1.5 gap-0.5">
+              <button
+                onClick={handlePrevMonth}
+                title="Previous Month"
+                className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={handleCurrentMonth}
+                title="Go to Current Month"
+                className="text-xs font-semibold px-2 py-1 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors"
+              >
+                Current
+              </button>
+              <button
+                onClick={handleNextMonth}
+                title="Next Month"
+                className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
           {isAdmin && (
             <button 
               onClick={handleExport}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm text-sm"
             >
               <Download size={18} />
               Export CSV
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* Authorized Approvers Card */}
+      <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm md:text-base">Payment Approver Email (পেমেন্ট অনুমোদনকারীর ইমেইল)</h3>
+            <p className="text-xs text-slate-600">The following admin email address(es) have authorization to approve payments in Financial Tracker:</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {adminMembers.length > 0 ? (
+            adminMembers.map((admin) => (
+              <div key={admin.id} className="inline-flex items-center gap-2 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded-lg font-medium shadow-sm">
+                <Mail size={14} className="text-emerald-600 shrink-0" />
+                <span className="font-semibold text-slate-800">{admin.name}:</span>
+                <span className="font-mono text-emerald-700 font-bold">{admin.email}</span>
+              </div>
+            ))
+          ) : (
+            <span className="text-xs text-slate-500 italic">No admin members found</span>
           )}
         </div>
       </div>
@@ -278,6 +430,19 @@ export function Finances() {
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-900 text-sm md:text-base">Payment Records:</span>
+            <span className="bg-emerald-100 text-emerald-900 text-xs px-3 py-1 rounded-full font-bold shadow-sm">
+              {monthsList.find(m => m.value === selectedMonthNum)?.label || ''} {selectedYear}
+            </span>
+          </div>
+          <div className="text-xs text-slate-500 font-medium flex items-center gap-3">
+            <span>Total Members: <strong className="text-slate-800">{paymentsWithMembers.length}</strong></span>
+            <span>Paid: <strong className="text-emerald-700">{paymentsWithMembers.filter(p => p.status === 'Paid').length}</strong></span>
+            <span>Pending/Verifying: <strong className="text-amber-700">{paymentsWithMembers.filter(p => p.status !== 'Paid').length}</strong></span>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -290,6 +455,8 @@ export function Finances() {
                 <th className="px-6 py-4 font-medium">Due Date</th>
                 <th className="px-6 py-4 font-medium">Paid Date</th>
                 <th className="px-6 py-4 font-medium">Late Fine</th>
+                <th className="px-6 py-4 font-medium">Submitted By</th>
+                <th className="px-6 py-4 font-medium">Approved By</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium text-right">Action</th>
               </tr>
@@ -308,6 +475,30 @@ export function Finances() {
                   <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(payment.dueDate)}</td>
                   <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(payment.paidDate)}</td>
                   <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(payment.dynamicFine)}</td>
+                  <td className="px-6 py-4 text-slate-600 text-xs">
+                    {payment.submittedBy ? (
+                      <div className="flex items-center gap-1.5 text-indigo-700 font-mono">
+                        <UserCheck size={13} className="shrink-0 text-indigo-600" />
+                        <span>{payment.submittedBy}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-sans italic text-xs">
+                        {payment.status === 'Verifying' ? 'Submitted' : '-'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-slate-600 text-xs">
+                    {payment.approvedBy ? (
+                      <div className="flex items-center gap-1.5 text-emerald-700 font-mono">
+                        <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />
+                        <span>{isAdmin ? payment.approvedBy : 'Admin'}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-sans italic text-xs">
+                        {payment.status === 'Verifying' ? 'Pending Approval' : '-'}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-2.5 py-1 rounded-full text-xs font-medium",
@@ -320,20 +511,25 @@ export function Finances() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {isAdmin && payment.status === 'Verifying' && !payment.isMock && (
+                    {isAdmin && payment.status !== 'Paid' && (payment.paymentMethod && payment.paymentMethod.trim() !== '' && payment.transactionId && payment.transactionId.trim() !== '') ? (
                       <button 
-                        onClick={() => handleApprovePayment(payment.id)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                        onClick={() => handleApprovePayment(payment)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-sm ml-auto"
                       >
+                        <CheckCircle2 size={13} />
                         Approve
                       </button>
-                    )}
+                    ) : isAdmin && payment.status !== 'Paid' ? (
+                      <span className="text-slate-400 font-sans italic text-xs">
+                        No Method/TxID
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}
               {paymentsWithMembers.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
                     No payment records found for this month.
                   </td>
                 </tr>

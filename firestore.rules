@@ -53,7 +53,7 @@ service cloud.firestore {
     }
 
     function isValidPayment(data) {
-      return hasOnlyAllowedFields(['userId', 'memberId', 'month', 'amountDue', 'amountPaid', 'dueDate', 'paidDate', 'status', 'fine', 'paymentMethod', 'transactionId']) &&
+      return hasOnlyAllowedFields(['userId', 'memberId', 'month', 'amountDue', 'amountPaid', 'dueDate', 'paidDate', 'status', 'fine', 'paymentMethod', 'transactionId', 'approvedBy', 'submittedBy']) &&
              data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
              data.memberId is string && data.memberId.size() > 0 && data.memberId.size() < 20 &&
              data.month is string && data.month.size() > 0 && data.month.size() < 10 &&
@@ -64,7 +64,9 @@ service cloud.firestore {
              data.fine is number && data.fine >= 0 &&
              (!('paidDate' in data) || (data.paidDate is string && data.paidDate.size() < 20)) &&
              (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() < 50)) &&
-             (!('transactionId' in data) || (data.transactionId is string && data.transactionId.size() < 100));
+             (!('transactionId' in data) || (data.transactionId is string && data.transactionId.size() < 100)) &&
+             (!('approvedBy' in data) || (data.approvedBy is string && data.approvedBy.size() < 100)) &&
+             (!('submittedBy' in data) || (data.submittedBy is string && data.submittedBy.size() < 100));
     }
 
     // ===============================================================

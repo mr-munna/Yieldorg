@@ -128,7 +128,7 @@ export function NewsFeed() {
         await updateDoc(doc(db, 'news', editingPost.id), postData);
       } else {
         postData.authorId = userProfile.uid;
-        postData.authorName = userProfile.name;
+        postData.authorName = userProfile.role === 'Admin' ? 'Yield Organization' : userProfile.name;
         postData.createdAt = serverTimestamp();
         await addDoc(collection(db, 'news'), postData);
       }
