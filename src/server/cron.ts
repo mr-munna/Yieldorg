@@ -1,5 +1,8 @@
 import cron from 'node-cron';
-import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import nodemailer from 'nodemailer';
 import twilio from 'twilio';
 import dotenv from 'dotenv';
@@ -8,14 +11,19 @@ import type { ReportData } from './pdfGenerator.ts';
 
 dotenv.config();
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
+// Initialize Firebase App & Firestore using config file
+const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+let firebaseConfig: any = {};
+if (fs.existsSync(configPath)) {
   try {
-    admin.initializeApp();
-  } catch (error) {
-    console.warn('Firebase Admin initialization failed. Ensure you have set up service account credentials.', error);
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch (e) {
+    console.error('Error reading firebase-applet-config.json in cron.ts', e);
   }
 }
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 // --- NOTIFICATION CONFIGURATIONS ---
 
@@ -39,25 +47,29 @@ export async function processReminders() {
   console.log('Running monthly payment reminder check...');
 
   try {
-    const db = admin.firestore();
     const today = new Date();
     const currentMonth = today.toISOString().slice(0, 7); 
 
-    const paymentsSnapshot = await db.collection('payments')
-      .where('month', '==', currentMonth)
-      .where('status', '==', 'Pending')
-      .get();
+    const q = query(
+      collection(db, 'payments'),
+      where('month', '==', currentMonth),
+      where('status', '==', 'Pending')
+    );
+    const paymentsSnapshot = await getDocs(q);
 
     if (paymentsSnapshot.empty) {
       console.log('No pending payments found for this month. Everyone is paid up!');
       return;
     }
 
-    for (const doc of paymentsSnapshot.docs) {
-      const paymentData = doc.data();
-      const userDoc = await db.collection('users').doc(paymentData.userId).get();
+    for (const pDoc of paymentsSnapshot.docs) {
+      const paymentData = pDoc.data();
+      if (!paymentData.userId) continue;
       
-      if (!userDoc.exists) continue;
+      const userDocRef = doc(db, 'users', paymentData.userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) continue;
       const userData = userDoc.data();
       if (!userData) continue;
 
@@ -89,47 +101,43 @@ export async function processReminders() {
 export async function distributeMonthlyReport() {
   console.log('Generating Monthly Transparency Report...');
   try {
-    const db = admin.firestore();
-    
-    // Get previous month (e.g., if today is May 1st, we want April's report)
     const today = new Date();
     today.setMonth(today.getMonth() - 1);
     const targetMonth = today.toISOString().slice(0, 7); // YYYY-MM
 
     // 1. Calculate Total Collected
-    const paymentsSnapshot = await db.collection('payments')
-      .where('month', '==', targetMonth)
-      .get();
+    const qPayments = query(collection(db, 'payments'), where('month', '==', targetMonth));
+    const paymentsSnapshot = await getDocs(qPayments);
 
     let totalCollected = 0;
     const defaulters: ReportData['defaulters'] = [];
 
-    for (const doc of paymentsSnapshot.docs) {
-      const p = doc.data();
+    for (const pDoc of paymentsSnapshot.docs) {
+      const p = pDoc.data();
       if (p.status === 'Paid') {
         totalCollected += p.amountPaid;
       } else {
-        // Fetch user details for defaulters
-        const userDoc = await db.collection('users').doc(p.userId).get();
-        const userData = userDoc.data();
-        if (userData) {
-          defaulters.push({
-            name: userData.name,
-            memberId: userData.memberId,
-            amountDue: p.amountDue - (p.amountPaid || 0) + (p.fine || 0)
-          });
+        if (p.userId) {
+          const userDoc = await getDoc(doc(db, 'users', p.userId));
+          const userData = userDoc.data();
+          if (userData) {
+            defaulters.push({
+              name: userData.name,
+              memberId: userData.memberId,
+              amountDue: p.amountDue - (p.amountPaid || 0) + (p.fine || 0)
+            });
+          }
         }
       }
     }
 
-    // 2. Calculate Total Expenses (Assuming an 'expenses' collection exists)
+    // 2. Calculate Total Expenses
     let totalExpenses = 0;
     try {
-      const expensesSnapshot = await db.collection('expenses')
-        .where('month', '==', targetMonth)
-        .get();
-      expensesSnapshot.forEach(doc => {
-        totalExpenses += doc.data().amount || 0;
+      const qExpenses = query(collection(db, 'expenses'), where('month', '==', targetMonth));
+      const expensesSnapshot = await getDocs(qExpenses);
+      expensesSnapshot.forEach(eDoc => {
+        totalExpenses += eDoc.data().amount || 0;
       });
     } catch (e) {
       console.log('No expenses collection found or error reading it. Defaulting to 0.');
@@ -149,15 +157,16 @@ export async function distributeMonthlyReport() {
     const pdfBuffer = await generateTransparencyReport(reportData);
 
     // 4. Distribute to all active members via Email
-    const usersSnapshot = await db.collection('users').where('status', '==', 'Active').get();
+    const qActiveUsers = query(collection(db, 'users'), where('status', '==', 'Active'));
+    const usersSnapshot = await getDocs(qActiveUsers);
     const emailList = usersSnapshot.docs
-      .map(doc => doc.data().contact)
+      .map(uDoc => uDoc.data().contact)
       .filter(email => email && email.includes('@'));
 
     if (emailList.length > 0) {
       await transporter.sendMail({
         from: '"Yield Organization" <noreply@yieldorg.com>',
-        to: emailList, // Sends to all active members
+        to: emailList,
         subject: `Transparency Report - ${targetMonth}`,
         text: `Dear Member,\n\nPlease find attached the Monthly Transparency Report for ${targetMonth}.\n\nRegards,\nYield Organization`,
         attachments: [
@@ -170,25 +179,6 @@ export async function distributeMonthlyReport() {
       });
       console.log(`Transparency report emailed to ${emailList.length} members.`);
     }
-
-    // 5. Distribute via WhatsApp Group (Twilio API)
-    // Note: Twilio requires a pre-approved template for WhatsApp broadcasts outside the 24-hour window.
-    // If you have a WhatsApp Group linked to a Twilio number, you can send it like this:
-    /*
-    const groupWhatsAppNumber = process.env.WHATSAPP_GROUP_ID; // e.g., 'whatsapp:+1234567890'
-    if (groupWhatsAppNumber) {
-      // Since Twilio API doesn't natively send files as buffers directly via WhatsApp easily without a public URL,
-      // you would typically upload the PDF to Firebase Storage first, get a public URL, and send the URL.
-      // For this example, we send a summary text.
-      const summaryMsg = `*Yield Org Report: ${targetMonth}*\nCollected: $${totalCollected}\nExpenses: $${totalExpenses}\nNet: $${netBalance}\nDefaulters: ${defaulters.length}`;
-      await twilioClient.messages.create({
-        body: summaryMsg,
-        from: 'whatsapp:+14155238886', // Your Twilio Sandbox Number
-        to: groupWhatsAppNumber
-      });
-      console.log('WhatsApp summary sent to group.');
-    }
-    */
 
   } catch (error) {
     console.error('Error generating/distributing report:', error);

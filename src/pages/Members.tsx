@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, MoreVertical, CheckCircle, XCircle, X, Megaphone } from 'lucide-react';
+import { Search, Plus, MoreVertical, CheckCircle, XCircle, X, Megaphone, Trash2 } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Member } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,11 +15,58 @@ export function Members() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
+  const [purgeSuccessMsg, setPurgeSuccessMsg] = useState('');
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [roleModalMember, setRoleModalMember] = useState<Member | null>(null);
+
+  const handlePurgeNonAdmins = async () => {
+    setIsPurging(true);
+    setPurgeSuccessMsg('');
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const adminUids = new Set<string>();
+      
+      usersSnap.docs.forEach(uDoc => {
+        const data = uDoc.data();
+        const role = (data.role || '').toString().toLowerCase();
+        if (role === 'admin' || (data.email && data.email.toLowerCase().startsWith('bijoy.mm112'))) {
+          adminUids.add(uDoc.id);
+        }
+      });
+
+      let deletedUsersCount = 0;
+      for (const uDoc of usersSnap.docs) {
+        const data = uDoc.data();
+        const role = (data.role || '').toString().toLowerCase();
+        const email = (data.email || '').toLowerCase();
+        if (role !== 'admin' && !email.startsWith('bijoy.mm112') && !adminUids.has(uDoc.id)) {
+          await deleteDoc(doc(db, 'users', uDoc.id));
+          deletedUsersCount++;
+        }
+      }
+
+      // Delete non-admin payment records
+      const paymentsSnap = await getDocs(collection(db, 'payments'));
+      for (const pDoc of paymentsSnap.docs) {
+        const pData = pDoc.data();
+        if (pData.userId && !adminUids.has(pData.userId)) {
+          await deleteDoc(doc(db, 'payments', pDoc.id));
+        }
+      }
+
+      setPurgeSuccessMsg(`সফলভাবে ${deletedUsersCount} জন সাধারণ মেম্বারের অ্যাকাউন্ট ও রেকর্ড ডাটাবেস থেকে মুছে ফেলা হয়েছে। এখন তারা নতুন করে রেজিস্ট্রেশন (Sign Up) করতে পারবে।`);
+    } catch (err: any) {
+      console.error('Purge error:', err);
+      alert('অ্যাকাউন্ট ডিলিট করতে ব্যর্থ হয়েছে: ' + (err.message || 'Error purging accounts'));
+    } finally {
+      setIsPurging(false);
+    }
+  };
 
   const canBroadcast = ['admin', 'president', 'secretary'].includes(userProfile?.role?.toLowerCase() || '');
 
@@ -165,13 +212,26 @@ export function Members() {
             </button>
           )}
           {isAdmin && (
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-            >
-              <Plus size={18} />
-              Add Member
-            </button>
+            <>
+              <button 
+                onClick={() => {
+                  setPurgeSuccessMsg('');
+                  setShowPurgeModal(true);
+                }}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3.5 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
+                title="Reset/Purge all non-admin member accounts"
+              >
+                <Trash2 size={16} />
+                Purge Non-Admins
+              </button>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
+              >
+                <Plus size={18} />
+                Add Member
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -261,6 +321,57 @@ export function Members() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {showPurgeModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative">
+            <button 
+              onClick={() => setShowPurgeModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">এডমিন ছাড়া বাকি সব অ্যাকাউন্ট ও ইমেইল ডিলিট করবেন?</h3>
+            <p className="text-slate-600 text-sm mb-4">
+              এই অ্যাকশনটি সম্পন্ন করলে অ্যাডমিন ব্যতীত অন্যান্য সমস্ত ব্যবহারকারীর অ্যাকাউন্ট, রেজিস্ট্রেশন তথ্য এবং ইমেইল স্থায়ীভাবে মুছে যাবে। এরপর সদস্যরা নতুন করে রেজিস্ট্রেশন (Sign Up) করে অ্যাকাউন্ট খুলতে পারবে।
+            </p>
+
+            {purgeSuccessMsg ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm font-medium mb-6">
+                {purgeSuccessMsg}
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs mb-6">
+                সতর্কতা: এটি স্থায়ীভাবে ফাইল ও ইউজার ডেটা ক্লিয়ার করবে। নিশ্চিত থাকলে নিচে "হ্যাঁ, ডিলিট করুন" চাপুন।
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button 
+                type="button"
+                onClick={() => setShowPurgeModal(false)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2.5 rounded-lg transition-colors text-sm"
+              >
+                {purgeSuccessMsg ? 'বন্ধ করুন' : 'বাতিল'}
+              </button>
+              {!purgeSuccessMsg && (
+                <button 
+                  type="button"
+                  onClick={handlePurgeNonAdmins}
+                  disabled={isPurging}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  {isPurging ? 'মুছে ফেলা হচ্ছে...' : 'হ্যাঁ, ডিলিট করুন'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

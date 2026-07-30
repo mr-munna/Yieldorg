@@ -88,25 +88,14 @@ export function MemberDashboard() {
       setLoading(false);
     });
 
-    // Fetch Notifications
-    const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(15));
+    // Fetch Notifications (Fetch all saved broadcast notices permanently)
+    const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
     const unsubNotifs = onSnapshot(qNotif, (snapshot) => {
       const notifs: any[] = [];
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.createdAt) {
-          const createdAtDate = data.createdAt.toDate();
-          if (createdAtDate > sevenDaysAgo) {
-            notifs.push({ id: doc.id, ...data });
-          }
-        } else {
-          notifs.push({ id: doc.id, ...data });
-        }
+        notifs.push({ id: doc.id, ...doc.data() });
       });
-      setNotifications(notifs.slice(0, 5));
+      setNotifications(notifs);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
 
     return () => {
@@ -437,11 +426,16 @@ export function MemberDashboard() {
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-fit">
-          <div className="flex items-center gap-2 mb-6">
-            <Megaphone className="text-indigo-600" size={20} />
-            <h3 className="text-lg font-bold text-slate-900">Notice Board</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Megaphone className="text-indigo-600" size={20} />
+              <h3 className="text-lg font-bold text-slate-900">Notice Board</h3>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+              {notifications.length} notice{notifications.length !== 1 ? 's' : ''}
+            </span>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
             {notifications.length > 0 ? (
               notifications.map((notif) => (
                 <div key={notif.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100 relative group">
