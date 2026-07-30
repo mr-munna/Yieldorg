@@ -490,7 +490,6 @@ export function MemberDashboard() {
                   <th className="px-6 py-4 font-medium">Amount Due</th>
                   <th className="px-6 py-4 font-medium">Fine</th>
                   <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Submitted By</th>
                   <th className="px-6 py-4 font-medium">Approved By</th>
                   <th className="px-6 py-4 font-medium text-right">Action</th>
                 </tr>
@@ -511,13 +510,6 @@ export function MemberDashboard() {
                       )}>
                         {payment.status === 'Verifying' ? 'Verifying' : payment.status}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 text-xs">
-                      {payment.submittedBy ? (
-                        <span className="font-mono text-indigo-700 font-medium">{payment.submittedBy}</span>
-                      ) : (
-                        <span className="text-slate-400 font-sans italic">-</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-slate-600 text-xs">
                       {payment.approvedBy ? (
