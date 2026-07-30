@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, cn, formatDate } from '../lib/utils';
-import { Download, Settings, Save, CheckCircle2, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Settings, Save, CheckCircle2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Payment, Member } from '../types';
@@ -196,7 +196,7 @@ export function Finances() {
     });
 
   const handleExport = () => {
-    const headers = ['Member Name', 'Member ID', 'Amount Due', 'Amount Paid', 'Due Date', 'Paid Date', 'Late Fine', 'Submitted By', 'Approved By', 'Status', 'Payment Method', 'Transaction ID'];
+    const headers = ['Member Name', 'Member ID', 'Amount Due', 'Amount Paid', 'Due Date', 'Paid Date', 'Late Fine', 'Approved By', 'Status', 'Payment Method', 'Transaction ID'];
     const rows = paymentsWithMembers.map(p => [
       p.memberName,
       p.memberId,
@@ -205,7 +205,6 @@ export function Finances() {
       p.dueDate,
       p.paidDate || '',
       p.dynamicFine,
-      p.submittedBy || '',
       p.approvedBy || '',
       p.status,
       p.paymentMethod || '',
@@ -427,7 +426,6 @@ export function Finances() {
                 <th className="px-6 py-4 font-medium">Due Date</th>
                 <th className="px-6 py-4 font-medium">Paid Date</th>
                 <th className="px-6 py-4 font-medium">Late Fine</th>
-                <th className="px-6 py-4 font-medium">Submitted By</th>
                 <th className="px-6 py-4 font-medium">Approved By</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium text-right">Action</th>
@@ -447,18 +445,6 @@ export function Finances() {
                   <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(payment.dueDate)}</td>
                   <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(payment.paidDate)}</td>
                   <td className="px-6 py-4 text-rose-600 font-medium">{formatCurrency(payment.dynamicFine)}</td>
-                  <td className="px-6 py-4 text-slate-600 text-xs">
-                    {payment.submittedBy ? (
-                      <div className="flex items-center gap-1.5 text-indigo-700 font-mono">
-                        <UserCheck size={13} className="shrink-0 text-indigo-600" />
-                        <span>{payment.submittedBy}</span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 font-sans italic text-xs">
-                        {payment.status === 'Verifying' ? 'Submitted' : '-'}
-                      </span>
-                    )}
-                  </td>
                   <td className="px-6 py-4 text-slate-600 text-xs">
                     {payment.approvedBy ? (
                       <div className="flex items-center gap-1.5 text-emerald-700 font-mono">
@@ -501,7 +487,7 @@ export function Finances() {
               ))}
               {paymentsWithMembers.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
                     No payment records found for this month.
                   </td>
                 </tr>
