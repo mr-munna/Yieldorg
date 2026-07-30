@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save, Receipt, Info, ChevronRight } from 'lucide-react';
-import { formatCurrency, formatDate, cn } from '../lib/utils';
+import { formatCurrency, formatDate, cn, calculateLateFine } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -25,6 +25,14 @@ export function Dashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
+  const [dailyFine, setDailyFine] = useState(0);
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  // Auto-refresh timer every 60 seconds for live fine calculation
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Fine Breakdown modal for Admin
   const [showFineBreakdown, setShowFineBreakdown] = useState(false);
@@ -70,6 +78,7 @@ export function Dashboard() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setStats(prev => ({ ...prev, monthlyFeeAmount: data.monthlyFeeAmount || 0 }));
+        setDailyFine(data.dailyFineAmount || 0);
         
         if (data.foundationDate) {
           const calculateAge = () => {
@@ -138,7 +147,7 @@ export function Dashboard() {
     };
   }, []);
 
-  // Compute stats dynamically whenever users, payments, or monthly fee changes
+  // Compute stats dynamically whenever users, payments, monthly fee, daily fine or nowTick changes
   useEffect(() => {
     const activeMembers = usersList.filter((u: any) => u.status === 'Active' && u.role !== 'Admin');
     const adminUserIds = new Set(
@@ -162,6 +171,11 @@ export function Dashboard() {
 
     const currentMonth = new Date().toISOString().slice(0, 7);
 
+    const calcFine = (p: { status: string; fine?: number; dueDate?: string; month: string }, memberJoinDate?: string | null) => {
+      if (p.status === 'Paid') return p.fine || 0;
+      return calculateLateFine(p.month, p.dueDate, memberJoinDate, dailyFine, nowTick);
+    };
+
     // Filter payments to exclude Admins
     const validPayments = paymentsList.filter(p => {
       if (p.userId && adminUserIds.has(p.userId)) return false;
@@ -170,6 +184,7 @@ export function Dashboard() {
     });
 
     validPayments.forEach((p) => {
+      const member = usersList.find(u => u.id === p.userId || u.memberId === p.memberId);
       if (p.status === 'Paid') {
         collected += p.amountPaid;
         fineCollected += (p.fine || 0);
@@ -178,17 +193,23 @@ export function Dashboard() {
         }
       } else {
         // Pending or Verifying payment in DB
-        pending += (p.amountDue - p.amountPaid) + (p.fine || 0);
+        const dynamicFine = calcFine(p, member?.joinDate);
+        pending += (p.amountDue - p.amountPaid) + dynamicFine;
       }
     });
 
     // Account for active members who don't have a payment document created for the current month yet
     activeMembers.forEach((member: any) => {
+      // If member joined after current month, ignore
+      if (member.joinDate && member.joinDate.substring(0, 7) > currentMonth) {
+        return;
+      }
       const hasCurrentMonthPayment = validPayments.some(
         p => (p.userId === member.id || p.memberId === member.memberId) && p.month === currentMonth
       );
-      if (!hasCurrentMonthPayment) {
-        pending += stats.monthlyFeeAmount;
+      if (!hasCurrentMonthPayment && stats.monthlyFeeAmount > 0) {
+        const currentMonthFine = calcFine({ month: currentMonth, status: 'Pending' }, member.joinDate);
+        pending += stats.monthlyFeeAmount + currentMonthFine;
       }
     });
 
@@ -214,7 +235,7 @@ export function Dashboard() {
       totalFineCollected: fineCollected,
       monthlyTarget: dynamicTarget
     }));
-  }, [usersList, paymentsList, stats.monthlyFeeAmount]);
+  }, [usersList, paymentsList, stats.monthlyFeeAmount, dailyFine, nowTick]);
 
   const statCards = [
     {

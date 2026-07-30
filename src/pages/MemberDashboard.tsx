@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, setDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone, ShieldCheck, Edit2, Trash2, Save, Receipt, Info, Clock, Coins, ChevronRight } from 'lucide-react';
-import { formatCurrency, cn, formatDate } from '../lib/utils';
+import { formatCurrency, cn, formatDate, calculateLateFine, getEffectiveDueDate } from '../lib/utils';
 import { Payment } from '../types';
 
 export function MemberDashboard() {
@@ -13,6 +13,13 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(true);
   const [dailyFine, setDailyFine] = useState(0);
   const [monthlyFee, setMonthlyFee] = useState(0);
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  // Auto-refresh timer every 60 seconds for live fine calculations
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Fine Modal State
   const [showFineModal, setShowFineModal] = useState(false);
@@ -109,30 +116,42 @@ export function MemberDashboard() {
 
   const calculateFine = (payment: Payment) => {
     if (payment.status === 'Paid') return payment.fine || 0;
-    if (!payment.dueDate) return 0;
-    const today = new Date();
-    const due = new Date(payment.dueDate);
-    if (today > due) {
-      const diffTime = Math.abs(today.getTime() - due.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays * dailyFine;
-    }
-    return 0;
+    return calculateLateFine(payment.month, payment.dueDate, userProfile?.joinDate, dailyFine, nowTick);
   };
 
-  const totalContribution = payments
+  // Synthesize current month payment if no payment doc exists yet in Firestore
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  const hasCurrentMonth = payments.some(p => p.month === currentMonthStr);
+  const allPayments = [...payments];
+
+  if (!hasCurrentMonth && monthlyFee > 0 && userProfile?.role !== 'Admin') {
+    const effectiveDue = getEffectiveDueDate(currentMonthStr, userProfile?.joinDate);
+    allPayments.unshift({
+      id: `virtual-${currentMonthStr}`,
+      userId: currentUser?.uid || '',
+      memberId: userProfile?.memberId || '',
+      month: currentMonthStr,
+      amountDue: monthlyFee,
+      amountPaid: 0,
+      dueDate: effectiveDue,
+      status: 'Pending',
+      fine: 0
+    });
+  }
+
+  const totalContribution = allPayments
     .filter(p => p.status === 'Paid')
     .reduce((sum, p) => sum + p.amountPaid, 0);
 
-  const totalFinePaid = payments
+  const totalFinePaid = allPayments
     .filter(p => p.status === 'Paid')
     .reduce((sum, p) => sum + (p.fine || 0), 0);
   
-  const pendingPayments = payments.filter(p => p.status !== 'Paid');
+  const pendingPayments = allPayments.filter(p => p.status !== 'Paid');
   const totalPendingFine = pendingPayments.reduce((sum, p) => sum + calculateFine(p), 0);
   const totalPending = pendingPayments.reduce((sum, p) => sum + (p.amountDue - p.amountPaid) + calculateFine(p), 0);
 
-  const fineIncurredPayments = payments.filter(p => (p.fine || 0) > 0 || calculateFine(p) > 0);
+  const fineIncurredPayments = allPayments.filter(p => (p.fine || 0) > 0 || calculateFine(p) > 0);
 
   const handlePayCurrentMonth = async () => {
     if (!currentUser || !userProfile) return;
@@ -143,7 +162,7 @@ export function MemberDashboard() {
     const currentMonth = new Date().toISOString().slice(0, 7);
     
     // Check if there's already a payment for this month
-    const existingPayment = payments.find(p => p.month === currentMonth);
+    const existingPayment = allPayments.find(p => p.month === currentMonth);
     
     if (existingPayment) {
       if (existingPayment.status !== 'Paid') {
@@ -153,35 +172,6 @@ export function MemberDashboard() {
         alert('You have already paid for the current month.');
       }
       return;
-    }
-
-    // If no payment exists, create a pending one for the current month and open modal
-    try {
-      const docRef = await addDoc(collection(db, 'payments'), {
-        userId: currentUser.uid,
-        memberId: userProfile.memberId,
-        month: currentMonth,
-        amountDue: monthlyFee,
-        amountPaid: 0,
-        dueDate: `${currentMonth}-10`,
-        status: 'Pending',
-        fine: 0
-      });
-      
-      setSelectedPayment({
-        id: docRef.id,
-        userId: currentUser.uid,
-        memberId: userProfile.memberId,
-        month: currentMonth,
-        amountDue: monthlyFee,
-        amountPaid: 0,
-        dueDate: `${currentMonth}-10`,
-        status: 'Pending',
-        fine: 0
-      } as Payment);
-      setShowPayModal(true);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'payments');
     }
   };
 
@@ -199,15 +189,33 @@ export function MemberDashboard() {
     const totalAmount = selectedPayment.amountDue + finalFine;
 
     try {
-      await updateDoc(doc(db, 'payments', selectedPayment.id), {
-        status: 'Verifying',
-        amountPaid: totalAmount,
-        fine: finalFine,
-        paidDate: new Date().toISOString().split('T')[0],
-        paymentMethod,
-        transactionId,
-        submittedBy: userProfile?.email || userProfile?.name || 'Member'
-      });
+      if (selectedPayment.id.startsWith('virtual-')) {
+        const docRef = doc(collection(db, 'payments'));
+        await setDoc(docRef, {
+          userId: currentUser?.uid,
+          memberId: userProfile?.memberId,
+          month: selectedPayment.month,
+          amountDue: selectedPayment.amountDue,
+          dueDate: selectedPayment.dueDate || `${selectedPayment.month}-10`,
+          status: 'Verifying',
+          amountPaid: totalAmount,
+          fine: finalFine,
+          paidDate: new Date().toISOString().split('T')[0],
+          paymentMethod,
+          transactionId,
+          submittedBy: userProfile?.email || userProfile?.name || 'Member'
+        });
+      } else {
+        await updateDoc(doc(db, 'payments', selectedPayment.id), {
+          status: 'Verifying',
+          amountPaid: totalAmount,
+          fine: finalFine,
+          paidDate: new Date().toISOString().split('T')[0],
+          paymentMethod,
+          transactionId,
+          submittedBy: userProfile?.email || userProfile?.name || 'Member'
+        });
+      }
       setShowPayModal(false);
       setSelectedPayment(null);
       setTransactionId('');
@@ -336,7 +344,7 @@ export function MemberDashboard() {
               <Info size={16} className="text-indigo-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-slate-800">বিলম্ব ফি নীতি (Rule):</p>
-                <p className="mt-0.5">প্রতি মাসের ১০ তারিখের পর বকেয়া ফি পরিশোধ করলে প্রতিদিনের জন্য ৳{dailyFine} টাকা হারে লেট ফাইন যুক্ত হয়।</p>
+                <p className="mt-0.5">প্রতি মাসের ১০ তারিখের পর বকেয়া ফি পরিশোধ করলে প্রতিদিনের জন্য ৳{dailyFine} টাকা হারে লেট ফাইন যুক্ত হয়। (১০ তারিখের পর জয়েন করা নতুন মেম্বারদের ক্ষেত্রে জয়েনিং ডেটের ১ দিন পর থেকে লেট ফাইন কার্যকর হয়।)</p>
               </div>
             </div>
 
@@ -495,7 +503,7 @@ export function MemberDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {payments.map((payment) => (
+                {allPayments.map((payment) => (
                   <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{payment.month}</td>
                     <td className="px-6 py-4 text-slate-600">{formatCurrency(payment.amountDue)}</td>

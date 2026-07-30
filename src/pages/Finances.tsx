@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, cn, formatDate } from '../lib/utils';
+import { formatCurrency, cn, formatDate, calculateLateFine, getEffectiveDueDate } from '../lib/utils';
 import { Download, Settings, Save, CheckCircle2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
@@ -155,7 +155,7 @@ export function Finances() {
       let status = payment ? payment.status : 'Pending';
       let amountDue = payment ? payment.amountDue : monthlyFee;
       let amountPaid = payment ? payment.amountPaid : 0;
-      let dueDate = payment ? payment.dueDate : `${selectedMonth}-10`;
+      let dueDate = payment?.dueDate || getEffectiveDueDate(selectedMonth, member.joinDate);
       let paymentMethod = payment ? payment.paymentMethod : '';
       let transactionId = payment ? payment.transactionId : '';
       let paidDate = payment ? payment.paidDate : '';
@@ -164,15 +164,7 @@ export function Finances() {
       
       let calculatedFine = payment?.fine || 0;
       if (status !== 'Paid') {
-        const today = new Date();
-        const due = new Date(dueDate);
-        
-        // Late fine starts after the 10th of the month (from the 11th)
-        if (today > due) {
-          const diffTime = Math.abs(today.getTime() - due.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          calculatedFine = diffDays * dailyFine;
-        }
+        calculatedFine = calculateLateFine(selectedMonth, payment?.dueDate, member.joinDate, dailyFine);
       }
 
       return { 
