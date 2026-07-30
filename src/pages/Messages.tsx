@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, addDoc, setDoc, serverTimestamp, orderBy, limit, where, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Search, Send, User, Users, Plus, X, MessageSquare, Settings, Trash2, Edit2, UserMinus, Image as ImageIcon, Mic, Phone, Video, Square, Download as DownloadIcon } from 'lucide-react';
+import { Search, Send, User, Users, Plus, X, MessageSquare, Settings, Trash2, Edit2, UserMinus, Image as ImageIcon, Mic, Phone, Video, Square, Download as DownloadIcon, ArrowLeft, Filter } from 'lucide-react';
 import { Member } from '../types';
 
 interface GroupChat {
@@ -27,6 +27,7 @@ export function Messages() {
   const [allChats, setAllChats] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
+  const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'groups'>('all');
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -370,90 +371,124 @@ export function Messages() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-[calc(100vh-120px)] md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-[calc(100vh-80px)] md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
       {/* Sidebar - Member List */}
       <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col absolute md:relative inset-0 z-10 bg-white transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
-        <div className="p-4 border-b border-slate-100">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-900">Messages</h2>
+        <div className="p-3.5 md:p-4 border-b border-slate-100 bg-white">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg md:text-xl font-bold text-slate-900">Messages</h2>
             <button 
               onClick={() => setShowNewGroupModal(true)}
-              className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+              className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 active:scale-95 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold"
               title="New Group"
             >
-              <Users size={20} />
+              <Users size={18} />
+              <span className="hidden sm:inline">New Group</span>
             </button>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <div className="relative mb-2.5">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
-              placeholder="Search members or groups..." 
+              placeholder="Search chats or members..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
             />
           </div>
+
+          {/* Mobile Filter Tabs */}
+          <div className="flex items-center gap-1.5 pt-1">
+            <button
+              onClick={() => setFilterTab('all')}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${filterTab === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilterTab('direct')}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${filterTab === 'direct' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Direct
+            </button>
+            <button
+              onClick={() => setFilterTab('groups')}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${filterTab === 'groups' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Groups ({groups.length})
+            </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {sortedGroups.length > 0 && (
-            <div className="py-2">
-              <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Groups</h3>
+
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+          {(filterTab === 'all' || filterTab === 'groups') && sortedGroups.length > 0 && (
+            <div className="py-1">
+              <h3 className="px-4 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">Groups</h3>
               {sortedGroups.map(group => {
                 const chatData = allChats.find(c => c.id === group.id);
+                const isSelected = activeChat?.id === group.id;
                 return (
-                <button
-                  key={group.id}
-                  onClick={() => setActiveChat({ id: group.id, name: group.name, type: 'group' })}
-                  className={`w-full text-left p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 ${activeChat?.id === group.id ? 'bg-indigo-50/50' : ''}`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                    <Users size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-slate-900 truncate">{group.name}</h4>
-                    {chatData?.lastMessage ? (
-                      <p className="text-xs truncate font-medium text-indigo-600">{chatData.lastMessageSender}: {chatData.lastMessage}</p>
-                    ) : (
-                      <p className="text-xs text-slate-500 truncate">{group.participants.length} members</p>
-                    )}
-                  </div>
-                </button>
-              )})}
+                  <button
+                    key={group.id}
+                    onClick={() => setActiveChat({ id: group.id, name: group.name, type: 'group' })}
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors ${isSelected ? 'bg-indigo-50/70 border-l-4 border-indigo-600' : ''}`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold shadow-xs">
+                      <Users size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline mb-0.5">
+                        <h4 className="font-semibold text-slate-900 text-sm truncate">{group.name}</h4>
+                      </div>
+                      {chatData?.lastMessage ? (
+                        <p className="text-xs truncate font-medium text-indigo-600">{chatData.lastMessageSender}: {chatData.lastMessage}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400 truncate">{group.participants.length} members</p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          <div className="py-2">
-            <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Direct Messages</h3>
-            {sortedMembers.map(member => {
-              const chatId = [userProfile?.uid, member.id].sort().join('_');
-              const chatData = allChats.find(c => c.id === chatId);
-              return (
-                <button
-                  key={member.id}
-                  onClick={() => setActiveChat({ id: chatId, name: member.name, type: 'direct', member })}
-                  className={`w-full text-left p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 ${activeChat?.id === chatId ? 'bg-indigo-50/50' : ''}`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                    <User size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-slate-900 truncate">{member.name}</h4>
-                    {chatData?.lastMessage ? (
-                      <p className="text-xs truncate font-medium text-indigo-600">{chatData.lastMessage}</p>
-                    ) : (
-                      <p className="text-xs text-slate-500 truncate">{member.role} • {member.memberId}</p>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-            {sortedMembers.length === 0 && sortedGroups.length === 0 && (
-              <div className="p-8 text-center text-slate-500 text-sm">
-                No results found.
-              </div>
-            )}
-          </div>
+          {(filterTab === 'all' || filterTab === 'direct') && (
+            <div className="py-1">
+              <h3 className="px-4 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">Direct Messages</h3>
+              {sortedMembers.map(member => {
+                const chatId = [userProfile?.uid, member.id].sort().join('_');
+                const chatData = allChats.find(c => c.id === chatId);
+                const isSelected = activeChat?.id === chatId;
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => setActiveChat({ id: chatId, name: member.name, type: 'direct', member })}
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors ${isSelected ? 'bg-indigo-50/70 border-l-4 border-indigo-600' : ''}`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 font-semibold shadow-xs">
+                      {member.name ? member.name.charAt(0).toUpperCase() : <User size={18} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline mb-0.5">
+                        <h4 className="font-semibold text-slate-900 text-sm truncate">{member.name}</h4>
+                        <span className="text-[10px] text-slate-400 shrink-0 ml-1">{member.role}</span>
+                      </div>
+                      {chatData?.lastMessage ? (
+                        <p className="text-xs truncate font-medium text-indigo-600">{chatData.lastMessage}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400 truncate">Member ID: {member.memberId || 'N/A'}</p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+              {sortedMembers.length === 0 && sortedGroups.length === 0 && (
+                <div className="p-8 text-center text-slate-400 text-sm">
+                  No chats found matching your search.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -462,59 +497,62 @@ export function Messages() {
         {activeChat ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-white">
-              <button 
-                onClick={() => setActiveChat(null)}
-                className="md:hidden p-2 -ml-2 text-slate-400 hover:text-slate-600"
-              >
-                ←
-              </button>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${activeChat.type === 'group' ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}>
-                {activeChat.type === 'group' ? <Users size={20} /> : <User size={20} />}
+            <div className="p-3 md:p-4 border-b border-slate-100 flex items-center justify-between bg-white shadow-xs sticky top-0 z-10">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <button 
+                  onClick={() => setActiveChat(null)}
+                  className="md:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 rounded-full transition-colors flex items-center justify-center shrink-0"
+                  aria-label="Back"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 font-bold ${activeChat.type === 'group' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {activeChat.type === 'group' ? <Users size={18} /> : (activeChat.name ? activeChat.name.charAt(0).toUpperCase() : <User size={18} />)}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-900 text-sm md:text-base truncate leading-tight">{activeChat.name}</h3>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {activeChat.type === 'group' ? 'Group Chat' : (activeChat.member?.role || 'Member')}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-slate-900">{activeChat.name}</h3>
-                <p className="text-xs text-slate-500">
-                  {activeChat.type === 'group' ? 'Group Chat' : activeChat.member?.role}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <button 
                   onClick={() => handleCall('audio')}
-                  className="p-2 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-100 transition-colors"
+                  className="p-2 text-slate-600 hover:text-indigo-600 rounded-full hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                   title="Audio Call"
                 >
-                  <Phone size={20} />
+                  <Phone size={18} />
                 </button>
                 <button 
                   onClick={() => handleCall('video')}
-                  className="p-2 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-100 transition-colors"
+                  className="p-2 text-slate-600 hover:text-indigo-600 rounded-full hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                   title="Video Call"
                 >
-                  <Video size={20} />
+                  <Video size={18} />
                 </button>
                 {activeChat.type === 'group' && (
                   <button 
                     onClick={() => setShowGroupSettings(true)}
-                    className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                    className="p-2 text-slate-600 hover:text-slate-900 rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
                     title="Group Settings"
                   >
-                    <Settings size={20} />
+                    <Settings size={18} />
                   </button>
                 )}
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 md:p-4 bg-slate-50 space-y-3 md:space-y-4">
               {messages.map((msg) => {
                 const isMine = msg.senderId === userProfile?.uid;
                 return (
                   <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
                     {!isMine && activeChat.type === 'group' && (
-                      <span className="text-xs text-slate-500 ml-1 mb-1">{msg.senderName}</span>
+                      <span className="text-[11px] font-semibold text-slate-500 ml-1 mb-1">{msg.senderName}</span>
                     )}
-                    <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMine ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'}`}>
+                    <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2 shadow-2xs ${isMine ? 'bg-indigo-600 text-white rounded-br-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-xs'}`}>
                       {msg.imageUrl && (
                         <div className="relative group">
                           <img 
@@ -547,7 +585,7 @@ export function Messages() {
                           </a>
                         </div>
                       )}
-                      {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
+                      {msg.text && <p className="text-xs md:text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>}
                       <span className={`text-[10px] mt-1 block ${isMine ? 'text-indigo-200' : 'text-slate-400'}`}>
                         {msg.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Sending...'}
                       </span>
@@ -556,7 +594,7 @@ export function Messages() {
                 );
               })}
               {messages.length === 0 && (
-                <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm">
                   No messages yet. Start the conversation!
                 </div>
               )}
@@ -564,7 +602,7 @@ export function Messages() {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 bg-white border-t border-slate-100">
+            <div className="p-2.5 md:p-4 bg-white border-t border-slate-100">
               {isRecording ? (
                 <div className="flex items-center gap-3 bg-red-50 p-2 rounded-full border border-red-100">
                   <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse ml-2" />

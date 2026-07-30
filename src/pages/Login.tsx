@@ -48,17 +48,37 @@ export function Login() {
   const handleResetPassword = async () => {
     setError('');
     setMessage('');
-    const resetEmail = identifier.trim();
-    if (!resetEmail || !resetEmail.includes('@')) {
-      setError('Please enter your email address in the Email/Member ID field to reset your password.');
+    let inputVal = identifier.trim();
+    if (!inputVal) {
+      setError('পাসওয়ার্ড রিসেট করতে উপরে "Email or Member ID" ঘরে আপনার নিবন্ধিত ইমেইল বা মেম্বার আইডি লিখুন এবং পুনরায় "Forgot Password?" এ ক্লিক করুন।');
       return;
     }
+
+    setLoading(true);
+    let targetEmail = inputVal;
+
     try {
-      setLoading(true);
-      await sendPasswordResetEmail(auth, resetEmail);
-      setMessage('Password reset email sent. Please check your inbox.');
+      // If it doesn't look like an email, try resolving it as a Member ID
+      if (!inputVal.includes('@')) {
+        const response = await fetch(`/api/resolve-member/${inputVal.toUpperCase()}`);
+        if (!response.ok) {
+          throw new Error('মেম্বার আইডি খুঁজে পাওয়া যায়নি। অনুগ্রহ করে সঠিক মেম্বার আইডি বা ইমেইল লিখুন।');
+        }
+        const data = await response.json();
+        targetEmail = data.email;
+      }
+
+      await sendPasswordResetEmail(auth, targetEmail);
+      setMessage(`পাসওয়ার্ড রিসেট লিংকটি (${targetEmail}) ইমেইলে সফলভাবে পাঠানো হয়েছে! অনুগ্রহ করে আপনার Inbox এবং Spam/Junk (স্প্যাম) ফোল্ডারটি চেক করুন।`);
     } catch (err: any) {
-      setError(err.message || 'Failed to send password reset email.');
+      console.error('Password Reset Error:', err);
+      if (err.code === 'auth/user-not-found') {
+        setError(`(${targetEmail}) ইমেইলটি দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি।`);
+      } else if (err.code === 'auth/invalid-email') {
+        setError('অনুগ্রহ করে একটি সঠিক ইমেইল ঠিকানা প্রদান করুন।');
+      } else {
+        setError(err.message || 'পাসওয়ার্ড রিসেট ইমেইল পাঠাতে ব্যর্থ হয়েছে।');
+      }
     } finally {
       setLoading(false);
     }

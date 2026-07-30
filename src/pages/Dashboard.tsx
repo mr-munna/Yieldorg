@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Target, AlertCircle, Calendar, Megaphone } from 'lucide-react';
+import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Payment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,6 +25,41 @@ export function Dashboard() {
   const [pendingCount, setPendingCount] = useState(0);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
+
+  // Broadcast Edit / Delete state
+  const [editingNotif, setEditingNotif] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editMessage, setEditMessage] = useState('');
+  const [isSavingNotif, setIsSavingNotif] = useState(false);
+  const [notifToDelete, setNotifToDelete] = useState<string | null>(null);
+
+  const canManageNotices = ['admin', 'president', 'secretary'].includes((userProfile?.role || '').toLowerCase());
+
+  const handleSaveEditNotif = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNotif || !editTitle.trim() || !editMessage.trim()) return;
+    setIsSavingNotif(true);
+    try {
+      await updateDoc(doc(db, 'notifications', editingNotif.id), {
+        title: editTitle.trim(),
+        message: editMessage.trim()
+      });
+      setEditingNotif(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `notifications/${editingNotif.id}`);
+    } finally {
+      setIsSavingNotif(false);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'notifications', id));
+      setNotifToDelete(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `notifications/${id}`);
+    }
+  };
 
   useEffect(() => {
     // Fetch Settings for Monthly Target and Foundation Date
@@ -324,8 +359,32 @@ export function Dashboard() {
           <div className="space-y-4">
             {notifications.length > 0 ? (
               notifications.map((notif) => (
-                <div key={notif.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                  <h4 className="font-bold text-slate-900 text-sm mb-1">{notif.title}</h4>
+                <div key={notif.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100 relative group">
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-bold text-slate-900 text-sm">{notif.title}</h4>
+                    {canManageNotices && (
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        <button
+                          onClick={() => {
+                            setEditingNotif(notif);
+                            setEditTitle(notif.title);
+                            setEditMessage(notif.message);
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors"
+                          title="Edit Broadcast Message"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => setNotifToDelete(notif.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                          title="Delete Broadcast Message"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-slate-600 text-sm whitespace-pre-wrap">{notif.message}</p>
                   <div className="mt-3 text-xs text-slate-400 flex justify-between items-center">
                     <span>By {notif.senderRole || notif.senderName}</span>
@@ -341,6 +400,96 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Edit Broadcast Modal */}
+      {editingNotif && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 relative">
+            <button 
+              onClick={() => setEditingNotif(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+              <Edit2 className="text-indigo-600" size={24} />
+              Edit Broadcast Message
+            </h3>
+            <p className="text-slate-600 mb-6 text-sm">
+              Update the title or content of this broadcast message.
+            </p>
+            
+            <form onSubmit={handleSaveEditNotif} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Broadcast Title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
+                <textarea 
+                  required
+                  rows={4}
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                  placeholder="Broadcast Message"
+                ></textarea>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setEditingNotif(null)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSavingNotif}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Save size={18} />
+                  {isSavingNotif ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {notifToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Broadcast Message?</h3>
+            <p className="text-sm text-slate-600 mb-6">Are you sure you want to delete this broadcast message? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setNotifToDelete(null)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleDeleteNotif(notifToDelete)}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium py-2 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
