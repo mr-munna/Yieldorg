@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, cn, formatDate } from '../lib/utils';
-import { Download, Settings, Save, ShieldCheck, Mail, CheckCircle2, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Settings, Save, CheckCircle2, UserCheck, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Payment, Member } from '../types';
@@ -21,7 +21,7 @@ const monthsList = [
   { value: '12', label: 'December' },
 ];
 
-const yearsList = Array.from({ length: 10 }, (_, i) => String(2023 + i));
+const yearsList = Array.from({ length: 25 }, (_, i) => String(2026 + i));
 
 export function Finances() {
   const { userProfile } = useAuth();
@@ -135,8 +135,6 @@ export function Finances() {
       handleFirestoreError(error, OperationType.WRITE, `payments/${paymentItem.id}`);
     }
   };
-
-  const adminMembers = members.filter(m => m.role === 'Admin');
 
   // Join payments with member names and calculate dynamic fine (Admins are exempt from dues)
   const activeMembers = members.filter(m => m.status === 'Active' && m.role !== 'Admin').sort((a, b) => {
@@ -310,32 +308,6 @@ export function Finances() {
               <Download size={18} />
               Export CSV
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* Authorized Approvers Card */}
-      <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0">
-            <ShieldCheck size={22} />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm md:text-base">Payment Approver Email (পেমেন্ট অনুমোদনকারীর ইমেইল)</h3>
-            <p className="text-xs text-slate-600">The following admin email address(es) have authorization to approve payments in Financial Tracker:</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {adminMembers.length > 0 ? (
-            adminMembers.map((admin) => (
-              <div key={admin.id} className="inline-flex items-center gap-2 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded-lg font-medium shadow-sm">
-                <Mail size={14} className="text-emerald-600 shrink-0" />
-                <span className="font-semibold text-slate-800">{admin.name}:</span>
-                <span className="font-mono text-emerald-700 font-bold">{admin.email}</span>
-              </div>
-            ))
-          ) : (
-            <span className="text-xs text-slate-500 italic">No admin members found</span>
           )}
         </div>
       </div>

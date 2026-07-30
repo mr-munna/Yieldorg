@@ -115,9 +115,8 @@ export function Login() {
         setError('Email/Password login is not enabled in Firebase. Please enable it in the Firebase Console under Authentication > Sign-in method.');
       } else if (err.code === 'auth/weak-password') {
         setError('Password should be at least 6 characters.');
-      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
-        setError('Account not found or incorrect password. If you haven\'t registered yet, please use the registration form below.');
-        setIsLogin(false); // Suggest registration
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-email') {
+        setError('Incorrect email, Member ID, or password. Please check your credentials and try again.');
       } else if (err.code === 'auth/email-already-in-use') {
         setError('This email is already registered! Please click "Already approved? Sign in" below, and log in. If you forgot your password, use the "Forgot Password?" button.');
         setIsLogin(true); // Auto-switch to login

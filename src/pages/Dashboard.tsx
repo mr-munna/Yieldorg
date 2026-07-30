@@ -23,6 +23,8 @@ export function Dashboard() {
   const [orgAge, setOrgAge] = useState('');
 
   const [pendingCount, setPendingCount] = useState(0);
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
 
   useEffect(() => {
     // Fetch Settings for Monthly Target and Foundation Date
@@ -64,75 +66,19 @@ export function Dashboard() {
 
     // Fetch Users for Total Members and Pending Count
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const allUsers = snapshot.docs.map(d => d.data());
-      const activeUsers = allUsers.filter(u => u.status === 'Active' && u.role !== 'Admin');
-      const pendingUsers = allUsers.filter(u => u.status === 'Pending');
-      
-      setStats(prev => ({ ...prev, totalMembers: activeUsers.length }));
+      const allUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUsersList(allUsers);
+      const pendingUsers = allUsers.filter((u: any) => u.status === 'Pending');
       setPendingCount(pendingUsers.length);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
-    // Fetch Payments for Collected, Pending, and Chart
+    // Fetch Payments
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
-      let collected = 0;
-      let pending = 0;
-      let fineCollected = 0;
-      
-      // For Chart Data (Last 6 months)
-      const monthsMap = new Map<string, number>();
-      
-      // Initialize last 6 months
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        const monthStr = d.toISOString().slice(0, 7); // YYYY-MM
-        monthsMap.set(monthStr, 0);
-      }
-
+      const pList: Payment[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as Payment;
-        
-        if (data.status === 'Paid') {
-          collected += data.amountPaid;
-          fineCollected += (data.fine || 0);
-          
-          if (monthsMap.has(data.month)) {
-            monthsMap.set(data.month, monthsMap.get(data.month)! + data.amountPaid);
-          }
-        } else {
-          pending += (data.amountDue - data.amountPaid) + (data.fine || 0);
-        }
+        pList.push({ id: doc.id, ...doc.data() } as Payment);
       });
-
-      // Calculate Dynamic Monthly Target for current month
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const currentMonthPayments = snapshot.docs.filter(d => d.data().month === currentMonth);
-      const currentMonthFines = currentMonthPayments.reduce((acc, d) => acc + (d.data().fine || 0), 0);
-      
-      // Use a ref or functional update to avoid stale totalMembers/monthlyFeeAmount
-      setStats(prev => {
-        const dynamicTarget = (prev.totalMembers * prev.monthlyFeeAmount) + currentMonthFines;
-        
-        // Format Chart Data using the dynamic target for the current month
-        const newChartData = Array.from(monthsMap.entries()).map(([month, amount]) => {
-          const date = new Date(month + '-01');
-          return {
-            name: date.toLocaleString('default', { month: 'short' }),
-            target: month === currentMonth ? dynamicTarget : (prev.totalMembers * prev.monthlyFeeAmount), // Simple fallback for past months
-            collected: amount
-          };
-        });
-        setChartData(newChartData);
-
-        return { 
-          ...prev, 
-          totalCollected: collected, 
-          pendingDues: pending, 
-          totalFineCollected: fineCollected,
-          monthlyTarget: dynamicTarget
-        };
-      });
-
+      setPaymentsList(pList);
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'payments'));
 
@@ -164,6 +110,84 @@ export function Dashboard() {
       unsubNotifs();
     };
   }, []);
+
+  // Compute stats dynamically whenever users, payments, or monthly fee changes
+  useEffect(() => {
+    const activeMembers = usersList.filter((u: any) => u.status === 'Active' && u.role !== 'Admin');
+    const adminUserIds = new Set(
+      usersList
+        .filter((u: any) => u.role === 'Admin')
+        .flatMap((u: any) => [u.id, u.memberId, u.email])
+        .filter(Boolean)
+    );
+
+    let collected = 0;
+    let pending = 0;
+    let fineCollected = 0;
+
+    const monthsMap = new Map<string, number>();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthStr = d.toISOString().slice(0, 7);
+      monthsMap.set(monthStr, 0);
+    }
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    // Filter payments to exclude Admins
+    const validPayments = paymentsList.filter(p => {
+      if (p.userId && adminUserIds.has(p.userId)) return false;
+      if (p.memberId && adminUserIds.has(p.memberId)) return false;
+      return true;
+    });
+
+    validPayments.forEach((p) => {
+      if (p.status === 'Paid') {
+        collected += p.amountPaid;
+        fineCollected += (p.fine || 0);
+        if (monthsMap.has(p.month)) {
+          monthsMap.set(p.month, monthsMap.get(p.month)! + p.amountPaid);
+        }
+      } else {
+        // Pending or Verifying payment in DB
+        pending += (p.amountDue - p.amountPaid) + (p.fine || 0);
+      }
+    });
+
+    // Account for active members who don't have a payment document created for the current month yet
+    activeMembers.forEach((member: any) => {
+      const hasCurrentMonthPayment = validPayments.some(
+        p => (p.userId === member.id || p.memberId === member.memberId) && p.month === currentMonth
+      );
+      if (!hasCurrentMonthPayment) {
+        pending += stats.monthlyFeeAmount;
+      }
+    });
+
+    const currentMonthPayments = validPayments.filter(p => p.month === currentMonth);
+    const currentMonthFines = currentMonthPayments.reduce((acc, p) => acc + (p.fine || 0), 0);
+    const dynamicTarget = (activeMembers.length * stats.monthlyFeeAmount) + currentMonthFines;
+
+    const newChartData = Array.from(monthsMap.entries()).map(([month, amount]) => {
+      const date = new Date(month + '-01');
+      return {
+        name: date.toLocaleString('default', { month: 'short' }),
+        target: month === currentMonth ? dynamicTarget : (activeMembers.length * stats.monthlyFeeAmount),
+        collected: amount
+      };
+    });
+
+    setChartData(newChartData);
+    setStats(prev => ({
+      ...prev,
+      totalMembers: activeMembers.length,
+      totalCollected: collected,
+      pendingDues: pending,
+      totalFineCollected: fineCollected,
+      monthlyTarget: dynamicTarget
+    }));
+  }, [usersList, paymentsList, stats.monthlyFeeAmount]);
 
   const statCards = [
     {
