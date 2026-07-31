@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save, Receipt, Info, ChevronRight } from 'lucide-react';
+import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save, Receipt, Info, ChevronRight, Landmark, CreditCard, Copy, Check, MapPin, Search } from 'lucide-react';
 import { formatCurrency, formatDate, cn, calculateLateFine } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { Payment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { BankLogo } from '../components/BankLogo';
+import { POPULAR_BANKS, getMatchingBranches } from '../lib/bankData';
 
 export function Dashboard() {
   const { userProfile, currentUser } = useAuth();
@@ -37,6 +39,25 @@ export function Dashboard() {
   // Fine Breakdown modal for Admin
   const [showFineBreakdown, setShowFineBreakdown] = useState(false);
 
+  // Bank Account State
+  const [bankInfo, setBankInfo] = useState({
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+    branchName: '',
+    mobileBankingNotes: ''
+  });
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+    branchName: '',
+    mobileBankingNotes: ''
+  });
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [copiedAccount, setCopiedAccount] = useState(false);
+
   // Broadcast Edit / Delete state
   const [editingNotif, setEditingNotif] = useState<any | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -45,6 +66,32 @@ export function Dashboard() {
   const [notifToDelete, setNotifToDelete] = useState<string | null>(null);
 
   const canManageNotices = ['admin', 'president', 'secretary'].includes((userProfile?.role || '').toLowerCase());
+
+  const handleCopyAccount = (accNum: string) => {
+    if (!accNum) return;
+    navigator.clipboard.writeText(accNum);
+    setCopiedAccount(true);
+    setTimeout(() => setCopiedAccount(false), 2000);
+  };
+
+  const handleSaveBankInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingBank(true);
+    try {
+      await setDoc(doc(db, 'settings', 'general'), {
+        bankName: bankForm.bankName.trim(),
+        accountName: bankForm.accountName.trim(),
+        accountNumber: bankForm.accountNumber.trim(),
+        branchName: bankForm.branchName.trim(),
+        mobileBankingNotes: bankForm.mobileBankingNotes.trim()
+      }, { merge: true });
+      setShowBankModal(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/general');
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
 
   const handleSaveEditNotif = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +126,13 @@ export function Dashboard() {
         const data = docSnap.data();
         setStats(prev => ({ ...prev, monthlyFeeAmount: data.monthlyFeeAmount || 0 }));
         setDailyFine(data.dailyFineAmount || 0);
+        setBankInfo({
+          bankName: data.bankName || '',
+          accountName: data.accountName || '',
+          accountNumber: data.accountNumber || '',
+          branchName: data.branchName || '',
+          mobileBankingNotes: data.mobileBankingNotes || ''
+        });
         
         if (data.foundationDate) {
           const calculateAge = () => {
@@ -285,39 +339,39 @@ export function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Yield Dashboard</h2>
-          <p className="text-slate-500 mt-1">Overview of Yield Organization's current status.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Yield Dashboard</h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Overview of Yield Organization's current status.</p>
         </div>
-        <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-lg flex items-center gap-2 text-emerald-800">
-          <Calendar size={18} className="text-emerald-600" />
-          <span className="text-sm font-medium">Age: {orgAge}</span>
+        <div className="bg-emerald-50 border border-emerald-100 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 text-emerald-800 self-start sm:self-auto">
+          <Calendar size={16} className="text-emerald-600 shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold">Age: {orgAge}</span>
         </div>
       </div>
 
       {pendingCount > 0 && (userProfile?.role === 'Admin' || currentUser?.email?.startsWith('bijoy.mm112')) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-              <Users size={20} />
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold">
+              <Users size={18} />
             </div>
             <div>
-              <h4 className="font-bold text-amber-900">{pendingCount} Pending Registration Requests</h4>
-              <p className="text-sm text-amber-700">New or re-registering members are waiting for your approval.</p>
+              <h4 className="font-bold text-amber-900 text-xs sm:text-sm">{pendingCount} Pending Registration Requests</h4>
+              <p className="text-[11px] sm:text-xs text-amber-700">New or re-registering members are waiting for your approval.</p>
             </div>
           </div>
           <button 
             onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'members' }))}
-            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors"
           >
             Review Requests
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           const isFineCard = stat.title === 'Total Fine Collected';
@@ -326,19 +380,19 @@ export function Dashboard() {
               key={index} 
               onClick={isFineCard ? () => setShowFineBreakdown(true) : undefined}
               className={cn(
-                "bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4 transition-all",
+                "bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-4 transition-all",
                 isFineCard && "cursor-pointer hover:border-amber-300 hover:shadow-md group"
               )}
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${stat.bgColor} ${stat.textColor}`}>
-                <Icon size={24} />
+              <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${stat.bgColor} ${stat.textColor}`}>
+                <Icon size={18} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-500">{stat.title}</p>
-                  {isFineCard && <ChevronRight size={16} className="text-slate-300 group-hover:text-amber-600 transition-all" />}
+                  <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">{stat.title}</p>
+                  {isFineCard && <ChevronRight size={14} className="text-slate-300 group-hover:text-amber-600 transition-all shrink-0" />}
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+                <h3 className="text-sm sm:text-lg font-bold text-slate-900 mt-0.5 truncate">{stat.value}</h3>
               </div>
             </div>
           );
@@ -450,17 +504,119 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Megaphone className="text-indigo-600" size={20} />
-              <h3 className="text-lg font-bold text-slate-900">Notice Board</h3>
+        <div className="space-y-6">
+          {/* Bank Account Details Card */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <Landmark size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Bank Account Details</h3>
+                  <p className="text-[11px] text-slate-500">সংস্থার অফিসিয়াল ব্যাংক অ্যাকাউন্ট</p>
+                </div>
+              </div>
+              {canManageNotices && (
+                <button
+                  onClick={() => {
+                    setBankForm({ ...bankInfo });
+                    setShowBankModal(true);
+                  }}
+                  className="px-2.5 py-1 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium border border-slate-200"
+                  title="Bank Details Edit"
+                >
+                  <Edit2 size={13} />
+                  <span>{bankInfo.accountNumber ? 'Edit' : 'Add'}</span>
+                </button>
+              )}
             </div>
-            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-              {notifications.length} saved broadcast{notifications.length !== 1 ? 's' : ''}
-            </span>
+
+            {bankInfo.accountNumber || bankInfo.bankName ? (
+              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-xl p-4 shadow-md space-y-3 relative overflow-hidden">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2.5">
+                    <BankLogo bankName={bankInfo.bankName} size="lg" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Bank / Provider</p>
+                      <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                        {bankInfo.bankName || 'Yield Organization Bank'}
+                      </h4>
+                    </div>
+                  </div>
+                  <CreditCard className="text-emerald-400/80 shrink-0" size={22} />
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Account Name</p>
+                  <p className="font-semibold text-xs text-slate-200">{bankInfo.accountName || 'Yield Organization'}</p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-700/80 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Account / Phone Number</p>
+                    <p className="font-mono font-bold text-sm text-emerald-300 tracking-wide">{bankInfo.accountNumber}</p>
+                  </div>
+                  {bankInfo.accountNumber && (
+                    <button
+                      onClick={() => handleCopyAccount(bankInfo.accountNumber)}
+                      className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium transition-all flex items-center gap-1 shrink-0 active:scale-95"
+                      title="Copy Account Number"
+                    >
+                      {copiedAccount ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                      <span>{copiedAccount ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {(bankInfo.branchName || bankInfo.mobileBankingNotes) && (
+                  <div className="text-[11px] text-slate-300 pt-2 border-t border-slate-700/60 space-y-1">
+                    {bankInfo.branchName && (
+                      <p className="flex items-center gap-1.5">
+                        <MapPin size={13} className="text-emerald-400 shrink-0" />
+                        <span className="text-slate-400">Branch:</span> <span className="font-medium text-white">{bankInfo.branchName}</span>
+                      </p>
+                    )}
+                    {bankInfo.mobileBankingNotes && (
+                      <p className="text-emerald-200 text-[11px] leading-tight bg-emerald-900/40 p-2 rounded-lg border border-emerald-800/50 mt-1">
+                        💡 {bankInfo.mobileBankingNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <Landmark className="mx-auto text-slate-300 mb-2" size={28} />
+                <p className="text-xs text-slate-500 font-medium">No bank account details added yet.</p>
+                {canManageNotices && (
+                  <button
+                    onClick={() => {
+                      setBankForm({ bankName: '', accountName: '', accountNumber: '', branchName: '', mobileBankingNotes: '' });
+                      setShowBankModal(true);
+                    }}
+                    className="mt-3 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Edit2 size={12} />
+                    <span>Add Bank Account Number</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
+
+          {/* Notice Board */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Megaphone className="text-indigo-600" size={20} />
+                <h3 className="text-lg font-bold text-slate-900">Notice Board</h3>
+              </div>
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                {notifications.length} saved broadcast{notifications.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
             {notifications.length > 0 ? (
               notifications.map((notif) => (
                 <div key={notif.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100 relative group">
@@ -503,6 +659,7 @@ export function Dashboard() {
             )}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Edit Broadcast Modal */}
@@ -591,6 +748,198 @@ export function Dashboard() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Bank Account Details Modal */}
+      {showBankModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => setShowBankModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-xl font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Landmark className="text-emerald-600" size={24} />
+              Bank Account Details
+            </h3>
+            <p className="text-slate-500 mb-4 text-xs">
+              অর্গানাইজেশনের ব্যাংক অ্যাকাউন্ট তথ্য সংরক্ষণ করুন যেন মেম্বাররা ব্যাংক ফি ও বকেয়া পরিশোধ করতে পারে।
+            </p>
+            
+            <form onSubmit={handleSaveBankInfo} className="space-y-4 text-xs">
+              {/* Select Popular Bank / MFS */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1.5">
+                  Select Bank / MFS (পপুলার ব্যাংক সিলেক্ট করুন)
+                </label>
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mb-2">
+                  {POPULAR_BANKS.map((b) => {
+                    const isSelected = bankForm.bankName.toLowerCase().includes(b.shortName.toLowerCase());
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setBankForm({ ...bankForm, bankName: b.name })}
+                        className={cn(
+                          "p-2 rounded-xl border text-center flex flex-col items-center justify-center transition-all hover:scale-[1.02]",
+                          isSelected 
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm ring-2 ring-emerald-500/20" 
+                            : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                        )}
+                      >
+                        <BankLogo bankName={b.name} size="sm" className="mb-1" />
+                        <span className="text-[10px] font-bold leading-tight truncate w-full">{b.shortName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Bank / Provider Name (ব্যাংক বা মাধ্যমের নাম)</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    required
+                    value={bankForm.bankName}
+                    onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800"
+                    placeholder="e.g. Dutch-Bangla Bank Ltd / Bkash Merchant"
+                  />
+                  <div className="absolute left-2.5 top-2.5">
+                    <BankLogo bankName={bankForm.bankName} size="sm" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Account Holder Name (অ্যাকাউন্ট প্রদানকারীর নাম)</label>
+                <input 
+                  type="text" 
+                  required
+                  value={bankForm.accountName}
+                  onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800"
+                  placeholder="e.g. Yield Organization Fund"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Account Number / Phone Number (অ্যাকাউন্ট বা ফোন নম্বর)</label>
+                <input 
+                  type="text" 
+                  required
+                  value={bankForm.accountNumber}
+                  onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800"
+                  placeholder="e.g. 123.145.67890 or 01700000000"
+                />
+              </div>
+
+              {/* Branch / Area Name Search and Selection */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="font-semibold text-slate-700">Branch / Location (শাখার নাম / এরিয়া)</label>
+                  <span className="text-[10px] text-slate-500">এরিয়ার নাম লিখলে শাখা সিলেক্ট করতে পারবেন</span>
+                </div>
+                
+                {/* Popular Area Chips */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  <span className="text-[10px] text-slate-400 flex items-center gap-0.5 mr-1 self-center">
+                    <Search size={10} /> এরিয়া ফিল্টার:
+                  </span>
+                  {['Uttara', 'Dhanmondi', 'Gulshan', 'Mirpur', 'Motijheel', 'Banani', 'Agrabad', 'Sylhet', 'Rajshahi', 'Khulna', 'Bogura', 'Mymensingh', 'Barishal', 'Comilla'].map((area) => (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => setBankForm({ ...bankForm, branchName: area })}
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors border",
+                        bankForm.branchName.toLowerCase().includes(area.toLowerCase())
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                      )}
+                    >
+                      {area}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={bankForm.branchName}
+                    onChange={(e) => setBankForm({ ...bankForm, branchName: e.target.value })}
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800"
+                    placeholder="Type area name (e.g. Uttara, Dhanmondi, Gulshan, Agrabad, Sylhet)..."
+                  />
+                  <MapPin size={16} className="absolute left-2.5 top-2.5 text-slate-400" />
+                </div>
+
+                {/* Live Branch Suggestions */}
+                {(() => {
+                  const suggestions = getMatchingBranches(bankForm.branchName, bankForm.bankName);
+                  if (suggestions.length === 0) return null;
+                  return (
+                    <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider px-1">
+                        উপলব্ধ শাখা ({suggestions.length}টি পাওয়া গেছে - ক্লিক করে সিলেক্ট করুন):
+                      </p>
+                      <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                        {suggestions.map((branch, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setBankForm({ ...bankForm, branchName: branch })}
+                            className={cn(
+                              "w-full text-left p-2 rounded-lg text-xs transition-colors flex items-start gap-2 border",
+                              bankForm.branchName === branch
+                                ? "bg-emerald-100 text-emerald-900 border-emerald-300 font-medium"
+                                : "bg-white hover:bg-emerald-50 text-slate-800 border-slate-200/80"
+                            )}
+                          >
+                            <MapPin size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{branch}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Additional Instructions / Notes (অতিরিক্ত নির্দেশাবলী - ঐচ্ছিক)</label>
+                <textarea 
+                  rows={2}
+                  value={bankForm.mobileBankingNotes}
+                  onChange={(e) => setBankForm({ ...bankForm, mobileBankingNotes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 resize-none"
+                  placeholder="e.g. Reference specific Member ID when making payment"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowBankModal(false)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2.5 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSavingBank}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Save size={16} />
+                  {isSavingBank ? 'Saving...' : 'Save Bank Details'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

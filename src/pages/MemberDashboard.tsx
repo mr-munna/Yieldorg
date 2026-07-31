@@ -230,75 +230,75 @@ export function MemberDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Welcome back, {userProfile?.name}</h2>
-          <p className="text-slate-500 mt-1">Member ID: <span className="font-mono text-slate-700">{userProfile?.memberId}</span></p>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Welcome back, {userProfile?.name}</h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Member ID: <span className="font-mono text-slate-700">{userProfile?.memberId}</span></p>
         </div>
         {userProfile?.role === 'Admin' ? (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm">
-            <ShieldCheck size={18} className="text-amber-600 shrink-0" />
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm self-start sm:self-auto">
+            <ShieldCheck size={16} className="text-amber-600 shrink-0" />
             <span>Admin Account (Exempt from Dues & Payment Submission)</span>
           </div>
         ) : (
           <button 
             onClick={handlePayCurrentMonth}
-            className="bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+            className="w-full sm:w-auto bg-indigo-600 text-white hover:bg-indigo-700 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
-            <CreditCard size={18} />
+            <CreditCard size={16} />
             Pay Now
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
-            <span className="text-2xl font-bold">৳</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="bg-white rounded-2xl p-3.5 sm:p-6 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600 shrink-0">
+            <span className="text-lg sm:text-2xl font-bold">৳</span>
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Total Contribution</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalContribution)}</h3>
+          <div className="min-w-0">
+            <p className="text-[11px] sm:text-sm font-medium text-slate-500 truncate">Total Contribution</p>
+            <h3 className="text-sm sm:text-2xl font-bold text-slate-900 mt-0.5 truncate">{formatCurrency(totalContribution)}</h3>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600 shrink-0">
-            <Calendar size={24} />
+        <div className="bg-white rounded-2xl p-3.5 sm:p-6 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 shrink-0">
+            <Calendar size={18} />
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Monthly Base Fee</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(monthlyFee)}</h3>
+          <div className="min-w-0">
+            <p className="text-[11px] sm:text-sm font-medium text-slate-500 truncate">Monthly Base Fee</p>
+            <h3 className="text-sm sm:text-2xl font-bold text-slate-900 mt-0.5 truncate">{formatCurrency(monthlyFee)}</h3>
           </div>
         </div>
 
         <div 
           onClick={() => setShowFineModal(true)}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer hover:border-purple-200 hover:shadow-md transition-all group"
+          className="bg-white rounded-2xl p-3.5 sm:p-6 shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer hover:border-purple-200 hover:shadow-md transition-all group"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
-              <Receipt size={22} />
+          <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-amber-50 text-amber-600 shrink-0">
+              <Receipt size={18} />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium text-slate-500">Late Fine Paid</p>
-                <Info size={14} className="text-slate-400 group-hover:text-purple-600 transition-colors" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-[11px] sm:text-sm font-medium text-slate-500 truncate">Late Fine Paid</p>
+                <Info size={12} className="text-slate-400 group-hover:text-purple-600 transition-colors shrink-0" />
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalFinePaid)}</h3>
+              <h3 className="text-sm sm:text-2xl font-bold text-slate-900 mt-0.5 truncate">{formatCurrency(totalFinePaid)}</h3>
             </div>
           </div>
-          <ChevronRight size={18} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />
+          <ChevronRight size={16} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all shrink-0" />
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-rose-50 text-rose-600 shrink-0">
-            <AlertCircle size={24} />
+        <div className="bg-white rounded-2xl p-3.5 sm:p-6 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center bg-rose-50 text-rose-600 shrink-0">
+            <AlertCircle size={18} />
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Pending Dues & Fines</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalPending)}</h3>
+          <div className="min-w-0">
+            <p className="text-[11px] sm:text-sm font-medium text-slate-500 truncate">Pending Dues & Fines</p>
+            <h3 className="text-sm sm:text-2xl font-bold text-slate-900 mt-0.5 truncate">{formatCurrency(totalPending)}</h3>
           </div>
         </div>
       </div>

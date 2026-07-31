@@ -94,16 +94,25 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
     signOut(auth);
   };
 
+  // Items explicitly requested for mobile bottom navigation
+  const mobileBottomItems = [
+    { id: 'dashboard', label: 'Yield Dashboard', mobileLabel: 'Yield', icon: LayoutDashboard },
+    { id: 'member-dashboard', label: 'My Dashboard', mobileLabel: 'My Dash', icon: User },
+    { id: 'members', label: 'Member Management', mobileLabel: 'Members', icon: Users },
+    { id: 'messages', label: 'Messages', mobileLabel: 'Messages', icon: MessageSquare },
+    { id: 'finances', label: 'Financial Tracker', mobileLabel: 'Finances', icon: DollarSign },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       {/* Mobile Header */}
-      <div className="md:hidden bg-emerald-900 text-white p-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+      <div className="md:hidden bg-emerald-900 text-white px-3.5 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Yield Organization Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5" />
-          <span className="font-semibold text-lg">Yield Org</span>
+          <img src="/logo.png" alt="Yield Organization Logo" className="w-7 h-7 rounded-lg object-contain bg-white p-0.5" />
+          <span className="font-semibold text-base tracking-tight">Yield Org</span>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-1">
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-1.5 text-slate-200 hover:text-white rounded-lg active:bg-emerald-800">
+          {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
@@ -177,7 +186,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-7xl mx-auto">
+      <main className="flex-1 px-3 py-3.5 sm:p-6 md:p-8 pb-20 md:pb-8 overflow-y-auto w-full max-w-7xl mx-auto">
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 10 }}
@@ -187,6 +196,29 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
           {children}
         </motion.div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-emerald-950/95 backdrop-blur-md border-t border-emerald-800/80 z-40 px-1 py-1 flex justify-around items-center shadow-2xl">
+        {mobileBottomItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={cn(
+                "flex flex-col items-center justify-center py-1 px-0.5 rounded-lg transition-all text-xs font-medium min-w-0 flex-1 active:scale-95",
+                isActive
+                  ? "text-white bg-emerald-800/90 font-semibold shadow-inner"
+                  : "text-slate-300 hover:text-white"
+              )}
+            >
+              <Icon size={17} className={cn(isActive ? "text-emerald-400" : "text-slate-400")} />
+              <span className="text-[10px] mt-0.5 truncate w-full text-center leading-tight font-medium">{item.mobileLabel}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
