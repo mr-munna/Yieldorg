@@ -22,7 +22,28 @@ export function Members() {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [editMemberModal, setEditMemberModal] = useState<Member | null>(null);
   const [roleModalMember, setRoleModalMember] = useState<Member | null>(null);
+  const [editDob, setEditDob] = useState<string>('');
+  const [editPhone, setEditPhone] = useState<string>('');
+  const [isSavingMember, setIsSavingMember] = useState<boolean>(false);
+
+  const handleSaveMemberDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editMemberModal) return;
+    setIsSavingMember(true);
+    try {
+      await updateDoc(doc(db, 'users', editMemberModal.id), {
+        dateOfBirth: editDob,
+        phone: editPhone
+      });
+      setEditMemberModal(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${editMemberModal.id}`);
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
 
   const handlePurgeNonAdmins = async () => {
     setIsPurging(true);
@@ -443,6 +464,7 @@ export function Members() {
                 <th className="px-6 py-4 font-medium">Name</th>
                 <th className="px-6 py-4 font-medium">Role</th>
                 <th className="px-6 py-4 font-medium">Contact Info</th>
+                <th className="px-6 py-4 font-medium">Date of Birth</th>
                 <th className="px-6 py-4 font-medium">Joining Date</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 {isAdmin && <th className="px-6 py-4 font-medium text-right">Actions</th>}
@@ -468,6 +490,9 @@ export function Members() {
                     <div>{member.email}</div>
                     <div className="text-xs text-slate-400">{member.phone}</div>
                   </td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">
+                    {(member as any).dateOfBirth ? formatDate((member as any).dateOfBirth) : <span className="text-slate-400 italic">Not set</span>}
+                  </td>
                   <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(member.joinDate)}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
@@ -487,19 +512,30 @@ export function Members() {
                         <MoreVertical size={18} />
                       </button>
                       {actionMenuId === member.id && (
-                        <div className="absolute right-8 top-10 w-40 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10">
+                        <div className="absolute right-8 top-10 w-44 bg-white rounded-lg shadow-lg border border-slate-100 py-1 z-10 text-left">
+                          <button 
+                            onClick={() => {
+                              setEditMemberModal(member);
+                              setEditDob((member as any).dateOfBirth || '');
+                              setEditPhone(member.phone || '');
+                              setActionMenuId(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors text-slate-700"
+                          >
+                            Edit Info (DOB)
+                          </button>
                           <button 
                             onClick={() => {
                               setRoleModalMember(member);
                               setActionMenuId(null);
                             }}
-                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors text-slate-700"
                           >
                             Change Role
                           </button>
                           <button 
                             onClick={() => toggleStatus(member.id, member.status)}
-                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors text-slate-700"
                           >
                             Mark as {member.status === 'Active' ? 'Inactive' : 'Active'}
                           </button>
@@ -520,6 +556,68 @@ export function Members() {
           </table>
         </div>
       </div>
+
+      {editMemberModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative">
+            <button 
+              onClick={() => setEditMemberModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-xl font-bold text-slate-900 mb-1">Edit Member Info</h3>
+            <p className="text-slate-600 mb-5 text-sm">
+              Update Date of Birth & Phone for <span className="font-semibold text-slate-900">{editMemberModal.name}</span>
+            </p>
+
+            <form onSubmit={handleSaveMemberDetails} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Date of Birth (জন্মতারিখ)
+                </label>
+                <input 
+                  type="date"
+                  value={editDob}
+                  onChange={(e) => setEditDob(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Used for automated birthday wish banners on Dashboard.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Phone Number
+                </label>
+                <input 
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="e.g. 01700000000"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button 
+                  type="button"
+                  onClick={() => setEditMemberModal(null)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSavingMember}
+                  className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors shadow-sm"
+                >
+                  {isSavingMember ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {roleModalMember && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
