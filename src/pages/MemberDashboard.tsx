@@ -615,7 +615,7 @@ export function MemberDashboard() {
                   <p className="text-slate-600 text-sm whitespace-pre-wrap">{notif.message}</p>
                   <div className="mt-3 text-xs text-slate-400 flex justify-between items-center">
                     <span>By {notif.senderRole || notif.senderName}</span>
-                    <span>{notif.createdAt ? formatDate(notif.createdAt.toDate()) : 'Just now'}</span>
+                    <span>{notif.createdAt ? formatDate(notif.createdAt) : 'Just now'}</span>
                   </div>
                 </div>
               ))

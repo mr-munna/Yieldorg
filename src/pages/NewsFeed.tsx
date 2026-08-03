@@ -3,6 +3,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { Newspaper, Plus, Trash2, X, Image as ImageIcon, Edit } from 'lucide-react';
+import { formatDateTime } from '../lib/utils';
 
 interface NewsPost {
   id: string;
@@ -234,7 +235,7 @@ export function NewsFeed() {
                 </p>
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100 text-sm text-slate-500">
                   <span className="font-medium text-emerald-700">{post.authorName}</span>
-                  <span>{post.createdAt?.toDate().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>{formatDateTime(post.createdAt)}</span>
                 </div>
               </div>
             </div>

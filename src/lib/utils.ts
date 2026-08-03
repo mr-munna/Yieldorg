@@ -48,9 +48,14 @@ export const formatCurrency = (amount: number) => {
   })}`;
 };
 
-export const formatDate = (dateInput: string | Date | undefined | null) => {
+export const formatDate = (dateInput: any) => {
   if (!dateInput) return '-';
-  const date = new Date(dateInput);
+  let date: Date;
+  if (typeof dateInput === 'object' && dateInput !== null && typeof dateInput.toDate === 'function') {
+    date = dateInput.toDate();
+  } else {
+    date = new Date(dateInput);
+  }
   if (isNaN(date.getTime())) return '-';
   
   const day = date.getDate().toString().padStart(2, '0');
@@ -58,6 +63,36 @@ export const formatDate = (dateInput: string | Date | undefined | null) => {
   const year = date.getFullYear();
   
   return `${day}/${month}/${year}`;
+};
+
+export const formatTime = (dateInput: any) => {
+  if (!dateInput) return '';
+  let date: Date;
+  if (typeof dateInput === 'object' && dateInput !== null && typeof dateInput.toDate === 'function') {
+    date = dateInput.toDate();
+  } else {
+    date = new Date(dateInput);
+  }
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+export const formatDateTime = (dateInput: any) => {
+  if (!dateInput) return '-';
+  let date: Date;
+  if (typeof dateInput === 'object' && dateInput !== null && typeof dateInput.toDate === 'function') {
+    date = dateInput.toDate();
+  } else {
+    date = new Date(dateInput);
+  }
+  if (isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 export function getMonthsRange(startMonthStr: string, endMonthStr: string): string[] {

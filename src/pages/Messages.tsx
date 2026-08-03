@@ -5,6 +5,7 @@ import { collection, query, onSnapshot, doc, addDoc, setDoc, serverTimestamp, or
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Search, Send, User, Users, Plus, X, MessageSquare, Settings, Trash2, Edit2, UserMinus, Image as ImageIcon, Mic, Phone, Video, Square, Download as DownloadIcon, ArrowLeft, Filter } from 'lucide-react';
 import { Member } from '../types';
+import { formatTime } from '../lib/utils';
 
 interface GroupChat {
   id: string;
@@ -592,7 +593,7 @@ export function Messages() {
                       )}
                       {msg.text && <p className="text-xs md:text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>}
                       <span className={`text-[10px] mt-1 block ${isMine ? 'text-indigo-200' : 'text-slate-400'}`}>
-                        {msg.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Sending...'}
+                        {formatTime(msg.createdAt) || 'Sending...'}
                       </span>
                     </div>
                   </div>
