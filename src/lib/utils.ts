@@ -59,3 +59,32 @@ export const formatDate = (dateInput: string | Date | undefined | null) => {
   
   return `${day}/${month}/${year}`;
 };
+
+export function getMonthsRange(startMonthStr: string, endMonthStr: string): string[] {
+  if (!startMonthStr || !endMonthStr) return [endMonthStr];
+  if (startMonthStr > endMonthStr) return [];
+
+  const months: string[] = [];
+  const [startYear, startMonth] = startMonthStr.split('-').map(Number);
+  const [endYear, endMonth] = endMonthStr.split('-').map(Number);
+
+  if (isNaN(startYear) || isNaN(startMonth) || isNaN(endYear) || isNaN(endMonth)) {
+    return [endMonthStr];
+  }
+
+  let curY = startYear;
+  let curM = startMonth;
+
+  while (curY < endYear || (curY === endYear && curM <= endMonth)) {
+    const monthFormatted = `${curY}-${String(curM).padStart(2, '0')}`;
+    months.push(monthFormatted);
+
+    curM++;
+    if (curM > 12) {
+      curM = 1;
+      curY++;
+    }
+  }
+
+  return months;
+}

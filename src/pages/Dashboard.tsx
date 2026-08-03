@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save, Receipt, Info, ChevronRight, Landmark, CreditCard, Copy, Check, MapPin, Search } from 'lucide-react';
-import { formatCurrency, formatDate, cn, calculateLateFine } from '../lib/utils';
+import { formatCurrency, formatDate, cn, calculateLateFine, getMonthsRange } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
@@ -8,6 +8,7 @@ import { Payment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { BankLogo } from '../components/BankLogo';
 import { POPULAR_BANKS, getMatchingBranches } from '../lib/bankData';
+import { PendingDuesOverview } from '../components/PendingDuesOverview';
 
 export function Dashboard() {
   const { userProfile, currentUser } = useAuth();
@@ -252,19 +253,21 @@ export function Dashboard() {
       }
     });
 
-    // Account for active members who don't have a payment document created for the current month yet
+    // Account for active members who don't have payment documents created for missing months
     activeMembers.forEach((member: any) => {
-      // If member joined after current month, ignore
-      if (member.joinDate && member.joinDate.substring(0, 7) > currentMonth) {
-        return;
-      }
-      const hasCurrentMonthPayment = validPayments.some(
-        p => (p.userId === member.id || p.memberId === member.memberId) && p.month === currentMonth
-      );
-      if (!hasCurrentMonthPayment && stats.monthlyFeeAmount > 0) {
-        const currentMonthFine = calcFine({ month: currentMonth, status: 'Pending' }, member.joinDate);
-        pending += stats.monthlyFeeAmount + currentMonthFine;
-      }
+      const joinMonthStr = member.joinDate ? member.joinDate.substring(0, 7) : currentMonth;
+      const startMonthStr = (joinMonthStr && joinMonthStr <= currentMonth) ? joinMonthStr : currentMonth;
+      const targetMonths = getMonthsRange(startMonthStr, currentMonth);
+
+      targetMonths.forEach((m) => {
+        const hasPayment = validPayments.some(
+          p => (p.userId === member.id || p.memberId === member.memberId) && p.month === m
+        );
+        if (!hasPayment && stats.monthlyFeeAmount > 0) {
+          const fine = calcFine({ month: m, status: 'Pending' }, member.joinDate);
+          pending += stats.monthlyFeeAmount + fine;
+        }
+      });
     });
 
     const currentMonthPayments = validPayments.filter(p => p.month === currentMonth);
@@ -398,6 +401,14 @@ export function Dashboard() {
           );
         })}
       </div>
+
+      {/* Unpaid Members / Defaulter List Component */}
+      <PendingDuesOverview 
+        usersList={usersList}
+        paymentsList={paymentsList}
+        monthlyFee={stats.monthlyFeeAmount}
+        dailyFine={dailyFine}
+      />
 
       {/* Admin Member Fine Breakdown Modal */}
       {showFineBreakdown && (

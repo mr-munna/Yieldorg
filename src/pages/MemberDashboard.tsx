@@ -3,8 +3,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, setDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone, ShieldCheck, Edit2, Trash2, Save, Receipt, Info, Clock, Coins, ChevronRight } from 'lucide-react';
-import { formatCurrency, cn, formatDate, calculateLateFine, getEffectiveDueDate } from '../lib/utils';
+import { formatCurrency, cn, formatDate, calculateLateFine, getEffectiveDueDate, getMonthsRange } from '../lib/utils';
 import { Payment } from '../types';
+import { PendingDuesOverview } from '../components/PendingDuesOverview';
 
 export function MemberDashboard() {
   const { userProfile, currentUser, loading: authLoading } = useAuth();
@@ -119,25 +120,36 @@ export function MemberDashboard() {
     return calculateLateFine(payment.month, payment.dueDate, userProfile?.joinDate, dailyFine, nowTick);
   };
 
-  // Synthesize current month payment if no payment doc exists yet in Firestore
+  // Synthesize missing monthly fee payments from join month up to current month
   const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const hasCurrentMonth = payments.some(p => p.month === currentMonthStr);
-  const allPayments = [...payments];
+  const joinMonthStr = userProfile?.joinDate ? userProfile.joinDate.substring(0, 7) : currentMonthStr;
+  const startMonthStr = (joinMonthStr && joinMonthStr <= currentMonthStr) ? joinMonthStr : currentMonthStr;
 
-  if (!hasCurrentMonth && monthlyFee > 0 && userProfile?.role !== 'Admin') {
-    const effectiveDue = getEffectiveDueDate(currentMonthStr, userProfile?.joinDate);
-    allPayments.unshift({
-      id: `virtual-${currentMonthStr}`,
-      userId: currentUser?.uid || '',
-      memberId: userProfile?.memberId || '',
-      month: currentMonthStr,
-      amountDue: monthlyFee,
-      amountPaid: 0,
-      dueDate: effectiveDue,
-      status: 'Pending',
-      fine: 0
+  const targetMonths = getMonthsRange(startMonthStr, currentMonthStr);
+  const virtualPayments: Payment[] = [];
+
+  if (monthlyFee > 0 && userProfile?.role !== 'Admin') {
+    targetMonths.forEach((m) => {
+      const exists = payments.some(p => p.month === m);
+      if (!exists) {
+        const effectiveDue = getEffectiveDueDate(m, userProfile?.joinDate);
+        virtualPayments.push({
+          id: `virtual-${m}`,
+          userId: currentUser?.uid || '',
+          memberId: userProfile?.memberId || '',
+          month: m,
+          amountDue: monthlyFee,
+          amountPaid: 0,
+          dueDate: effectiveDue,
+          status: 'Pending',
+          fine: 0
+        });
+      }
     });
   }
+
+  const allPayments = [...payments, ...virtualPayments];
+  allPayments.sort((a, b) => b.month.localeCompare(a.month));
 
   const totalContribution = allPayments
     .filter(p => p.status === 'Paid')
@@ -159,19 +171,17 @@ export function MemberDashboard() {
       alert('Admin accounts are exempt from submitting payments.');
       return;
     }
-    const currentMonth = new Date().toISOString().slice(0, 7);
     
-    // Check if there's already a payment for this month
-    const existingPayment = allPayments.find(p => p.month === currentMonth);
-    
-    if (existingPayment) {
-      if (existingPayment.status !== 'Paid') {
-        setSelectedPayment(existingPayment);
-        setShowPayModal(true);
-      } else {
-        alert('You have already paid for the current month.');
-      }
-      return;
+    // Find unpaid/pending payments sorted oldest to newest
+    const pendingList = allPayments
+      .filter(p => p.status !== 'Paid' && p.status !== 'Verifying')
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    if (pendingList.length > 0) {
+      setSelectedPayment(pendingList[0]);
+      setShowPayModal(true);
+    } else {
+      alert('আপনার কোনো বকেয়া নেই! ধন্যবাদ।');
     }
   };
 
