@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { BankLogo } from '../components/BankLogo';
 import { POPULAR_BANKS, getMatchingBranches } from '../lib/bankData';
 import { PendingDuesOverview } from '../components/PendingDuesOverview';
+import { AnniversaryBirthdayWish } from '../components/AnniversaryBirthdayWish';
 
 export function Dashboard() {
   const { userProfile, currentUser } = useAuth();
@@ -353,6 +354,9 @@ export function Dashboard() {
           <span className="text-xs sm:text-sm font-semibold">Age: {orgAge}</span>
         </div>
       </div>
+
+      {/* Automated Foundation Anniversary & Birthday Wish Banner */}
+      <AnniversaryBirthdayWish isAdmin={userProfile?.role === 'Admin'} />
 
       {pendingCount > 0 && (userProfile?.role === 'Admin' || currentUser?.email?.startsWith('bijoy.mm112')) && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

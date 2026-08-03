@@ -5,6 +5,7 @@ import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, setDoc, d
 import { Banknote, AlertCircle, Calendar, Plus, X, CreditCard, Megaphone, ShieldCheck, Edit2, Trash2, Save, Receipt, Info, Clock, Coins, ChevronRight } from 'lucide-react';
 import { formatCurrency, cn, formatDate, calculateLateFine, getEffectiveDueDate, getMonthsRange } from '../lib/utils';
 import { Payment } from '../types';
+import { AnniversaryBirthdayWish } from '../components/AnniversaryBirthdayWish';
 import { PendingDuesOverview } from '../components/PendingDuesOverview';
 
 export function MemberDashboard() {
@@ -261,6 +262,9 @@ export function MemberDashboard() {
           </button>
         )}
       </div>
+
+      {/* Automated Foundation Anniversary & Birthday Wish Banner */}
+      <AnniversaryBirthdayWish isAdmin={userProfile?.role === 'Admin'} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <div className="bg-white rounded-2xl p-3.5 sm:p-6 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-4">
