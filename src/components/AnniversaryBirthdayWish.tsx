@@ -164,28 +164,29 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
     }
   };
 
-  const showAnniversaryBanner = isFoundationDay || demoMode;
-  const showBirthdayBanner = birthdayMembers.length > 0 || demoMode;
-  const showPersonalBirthdayCard = currentMemberBirthday || demoMode;
+  const isEffectiveDemo = isAdmin && demoMode;
+  const showAnniversaryBanner = isFoundationDay || isEffectiveDemo;
+  const showBirthdayBanner = birthdayMembers.length > 0 || isEffectiveDemo;
+  const showPersonalBirthdayCard = currentMemberBirthday || isEffectiveDemo;
 
   return (
     <div className="space-y-3">
-      {/* Demo Mode Toggle Bar */}
-      <div className="flex items-center justify-between bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 text-xs text-purple-900">
-        <div className="flex items-center gap-2">
-          <Sparkles size={15} className="text-purple-600 shrink-0" />
-          <span className="font-semibold">
-            {demoMode ? '🎉 Demo Preview Mode Active' : 'Automated Wishes & Anniversary System Active'}
-          </span>
-          {foundationDate && (
-            <span className="hidden sm:inline-block text-[11px] text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md font-mono">
-              Founding Date: {foundationDate}
+      {/* Demo Mode Toggle Bar - Only visible to Admin */}
+      {isAdmin && (
+        <div className="flex items-center justify-between bg-purple-50/70 border border-purple-200/80 rounded-xl px-3 py-2 text-xs text-purple-900">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} className="text-purple-600 shrink-0" />
+            <span className="font-semibold">
+              {demoMode ? '🎉 Admin Demo Mode Active' : 'Automated Wishes & Anniversary System Active'}
             </span>
-          )}
-        </div>
+            {foundationDate && (
+              <span className="hidden sm:inline-block text-[11px] text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md font-mono">
+                Founding Date: {foundationDate}
+              </span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-2">
-          {isAdmin && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowDateModal(true)}
@@ -194,23 +195,23 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
               <Calendar size={13} />
               {foundationDate ? 'Edit Date' : 'Set Date'}
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={() => setDemoMode(!demoMode)}
-            className={cn(
-              "px-2.5 py-1 rounded-lg font-semibold text-[11px] transition-all shadow-sm border flex items-center gap-1",
-              demoMode
-                ? "bg-purple-600 text-white border-purple-700"
-                : "bg-white text-purple-700 hover:bg-purple-100 border-purple-300"
-            )}
-          >
-            <PartyPopper size={13} />
-            {demoMode ? 'Exit Demo' : 'View Banner Demo'}
-          </button>
+            <button
+              type="button"
+              onClick={() => setDemoMode(!demoMode)}
+              className={cn(
+                "px-2.5 py-1 rounded-lg font-semibold text-[11px] transition-all shadow-sm border flex items-center gap-1",
+                demoMode
+                  ? "bg-purple-600 text-white border-purple-700"
+                  : "bg-white text-purple-700 hover:bg-purple-100 border-purple-300"
+              )}
+            >
+              <PartyPopper size={13} />
+              {demoMode ? 'Exit Demo' : 'View Banner Demo'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 1. Foundation Day Celebration Banner */}
       {showAnniversaryBanner && (
