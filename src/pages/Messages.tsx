@@ -646,7 +646,7 @@ export function Messages() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
+                <form onSubmit={handleSendMessage} className="flex gap-1.5 md:gap-2 items-center">
                   <input
                     type="file"
                     accept="image/*"
@@ -658,21 +658,21 @@ export function Messages() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="p-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 active:scale-95 rounded-full transition-all border border-indigo-200/80 disabled:opacity-50 shrink-0 flex items-center justify-center"
+                    className="w-9 h-9 md:w-10 md:h-10 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 active:scale-95 rounded-full transition-all border border-indigo-200/80 disabled:opacity-50 shrink-0 flex items-center justify-center"
                     title="Photo Upload / ফটো আপলোড"
                     aria-label="Upload Photo"
                   >
-                    <ImageIcon size={20} />
+                    <ImageIcon size={18} />
                   </button>
                   <button
                     type="button"
                     onClick={startRecording}
                     disabled={isUploading}
-                    className="p-2.5 bg-red-50 text-red-600 hover:bg-red-100 active:scale-95 rounded-full transition-all border border-red-200/80 disabled:opacity-50 shrink-0 flex items-center justify-center"
+                    className="w-9 h-9 md:w-10 md:h-10 bg-red-50 text-red-600 hover:bg-red-100 active:scale-95 rounded-full transition-all border border-red-200/80 disabled:opacity-50 shrink-0 flex items-center justify-center"
                     title="Audio Message / ভয়েস মেসেজ"
                     aria-label="Record Voice"
                   >
-                    <Mic size={20} />
+                    <Mic size={18} />
                   </button>
                   <input
                     type="text"
@@ -680,14 +680,14 @@ export function Messages() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder={isUploading ? "Uploading..." : "Type a message..."}
                     disabled={isUploading}
-                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-50 text-sm"
+                    className="flex-1 min-w-0 px-3 md:px-4 py-2 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-50 text-xs md:text-sm"
                   />
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || isUploading}
-                    className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shrink-0 transition-all active:scale-95 disabled:opacity-50 disabled:hover:bg-indigo-600"
+                    className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shrink-0 transition-all active:scale-95 disabled:opacity-50 disabled:hover:bg-indigo-600 shadow-sm"
                   >
-                    <Send size={18} className="ml-0.5" />
+                    <Send size={16} className="ml-0.5" />
                   </button>
                 </form>
               )}

@@ -104,8 +104,8 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   // Items explicitly requested for mobile bottom navigation
   const mobileBottomItems = [
     { id: 'dashboard', label: 'Yield Dashboard', mobileLabel: 'Yield', icon: LayoutDashboard },
-    { id: 'member-dashboard', label: 'My Dashboard', mobileLabel: 'My Dash', icon: User },
     { id: 'members', label: 'Member Management', mobileLabel: 'Members', icon: Users },
+    { id: 'member-dashboard', label: 'My Dashboard', mobileLabel: 'My Dash', icon: User },
     { id: 'messages', label: 'Messages', mobileLabel: 'Messages', icon: MessageSquare },
     { id: 'finances', label: 'Financial Tracker', mobileLabel: 'Finances', icon: DollarSign },
   ];
