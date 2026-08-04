@@ -24,8 +24,11 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
   const [demoMode, setDemoMode] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Subscribe to settings/general for foundationDate
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), async (docSnap) => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
+
+    // 1. Subscribe to settings for foundationDate
+    const unsubSettings = onSnapshot(doc(db, 'settings', settingsDocId), async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const fDate = data.foundationDate || '';
@@ -33,17 +36,18 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
         setTempDate(fDate);
 
         if (fDate) {
-          checkFoundationAnniversary(fDate);
+          checkFoundationAnniversary(fDate, orgId);
         }
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
+    }, (error) => handleFirestoreError(error, OperationType.GET, `settings/${settingsDocId}`));
 
-    // 2. Subscribe to users for member birthdays
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+    // 2. Subscribe to users for member birthdays in this organization
+    const qUsers = query(collection(db, 'users'), where('organizationId', '==', orgId));
+    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
       const usersList: any[] = [];
       snapshot.forEach(d => usersList.push({ id: d.id, ...d.data() }));
 
-      checkMemberBirthdays(usersList);
+      checkMemberBirthdays(usersList, orgId);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     return () => {
@@ -52,7 +56,7 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
     };
   }, [userProfile]);
 
-  const checkFoundationAnniversary = async (fDateStr: string) => {
+  const checkFoundationAnniversary = async (fDateStr: string, orgId: string) => {
     try {
       const foundation = new Date(fDateStr);
       const today = new Date();
@@ -72,7 +76,7 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
 
         // Auto-post anniversary notice to notifications if not already posted today/this year
         const currentYearStr = today.getFullYear().toString();
-        const autoNoticeTag = `foundation_anniversary_${currentYearStr}`;
+        const autoNoticeTag = `foundation_anniversary_${currentYearStr}_${orgId}`;
 
         const qNotif = query(collection(db, 'notifications'), where('tag', '==', autoNoticeTag));
         const notifSnap = await getDocs(qNotif);
@@ -83,7 +87,8 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
             message: `Today, ${today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, marks our organization's anniversary! Warmest wishes & heartfelt thanks to all our members for your dedication, unity, and continuous support! 🎂🎈🥳`,
             createdBy: 'System (Auto Wish)',
             createdAt: new Date().toISOString(),
-            tag: autoNoticeTag
+            tag: autoNoticeTag,
+            organizationId: orgId
           });
         }
       } else {
@@ -94,7 +99,7 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
     }
   };
 
-  const checkMemberBirthdays = async (users: any[]) => {
+  const checkMemberBirthdays = async (users: any[], orgId: string) => {
     try {
       const today = new Date();
       const tMonth = today.getMonth() + 1;
@@ -149,16 +154,19 @@ export function AnniversaryBirthdayWish({ isAdmin = false }: AnniversaryBirthday
     e.preventDefault();
     if (!tempDate) return;
     setIsSaving(true);
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
     try {
-      await setDoc(doc(db, 'settings', 'general'), {
-        foundationDate: tempDate
+      await setDoc(doc(db, 'settings', settingsDocId), {
+        foundationDate: tempDate,
+        organizationId: orgId
       }, { merge: true });
 
       setFoundationDate(tempDate);
       setShowDateModal(false);
-      checkFoundationAnniversary(tempDate);
+      checkFoundationAnniversary(tempDate, orgId);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, 'settings/general');
+      handleFirestoreError(err, OperationType.UPDATE, `settings/${settingsDocId}`);
     } finally {
       setIsSaving(false);
     }

@@ -8,6 +8,8 @@ export interface Member {
   contact: string;
   role: string;
   status: 'Active' | 'Inactive' | 'Pending';
+  organizationId?: string;
+  organizationName?: string;
 }
 
 export interface Payment {
@@ -25,6 +27,7 @@ export interface Payment {
   transactionId?: string;
   approvedBy?: string;
   submittedBy?: string;
+  organizationId?: string;
 }
 
 export interface InventoryItem {
@@ -33,6 +36,7 @@ export interface InventoryItem {
   description: string;
   status: 'Available' | 'In Use' | 'Archived';
   assignedTo?: string;
+  organizationId?: string;
 }
 
 export interface OrgStats {

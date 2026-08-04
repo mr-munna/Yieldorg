@@ -53,15 +53,18 @@ export function Messages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Fetch all active members except current user
+    // Fetch all active members except current user in the same organization
+    const orgId = userProfile?.organizationId || 'org_default';
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const allUsers: Member[] = [];
       const isAdmin = userProfile?.role === 'Admin';
       snapshot.forEach((doc) => {
         const data = doc.data() as Member;
-        if (data.status === 'Active' && doc.id !== userProfile?.uid) {
-          if (!isAdmin && data.role === 'Admin') return;
-          allUsers.push({ ...data, id: doc.id });
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          if (data.status === 'Active' && doc.id !== userProfile?.uid) {
+            if (!isAdmin && data.role === 'Admin') return;
+            allUsers.push({ ...data, id: doc.id });
+          }
         }
       });
       setMembers(allUsers);
@@ -73,7 +76,8 @@ export function Messages() {
 
   useEffect(() => {
     if (!userProfile?.uid) return;
-    // Fetch all chats
+    const orgId = userProfile?.organizationId || 'org_default';
+    // Fetch all chats for this organization
     const qChats = query(
       collection(db, 'chats'), 
       where('participants', 'array-contains', userProfile.uid)
@@ -81,7 +85,10 @@ export function Messages() {
     const unsubChats = onSnapshot(qChats, (snapshot) => {
       const chats: any[] = [];
       snapshot.forEach(doc => {
-        chats.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          chats.push({ id: doc.id, ...data });
+        }
       });
       setAllChats(chats);
       
@@ -145,6 +152,7 @@ export function Messages() {
         lastMessage: lastMessageText,
         lastMessageTime: serverTimestamp(),
         lastMessageSender: userProfile.name,
+        organizationId: userProfile.organizationId || 'org_default'
       };
 
       if (activeChat.type === 'direct' && activeChat.member?.id) {
@@ -297,7 +305,8 @@ export function Messages() {
         participants,
         isGroup: true,
         createdAt: serverTimestamp(),
-        createdBy: userProfile.uid
+        createdBy: userProfile.uid,
+        organizationId: userProfile.organizationId || 'org_default'
       });
       setShowNewGroupModal(false);
       setNewGroupName('');

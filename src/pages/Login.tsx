@@ -14,6 +14,8 @@ export function Login() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(currentUser?.email || '');
   const [phone, setPhone] = useState('');
+  const [orgCode, setOrgCode] = useState('');
+  const [orgName, setOrgName] = useState('');
   const [agreedToRules, setAgreedToRules] = useState(false);
   const [showConstitutionModal, setShowConstitutionModal] = useState(false);
   const [constitutionText, setConstitutionText] = useState('');
@@ -127,7 +129,7 @@ export function Login() {
           await createUserWithEmailAndPassword(auth, regEmail, password);
         }
         
-        await bootstrapUser(name, regEmail, phone);
+        await bootstrapUser(name, regEmail, phone, orgCode, orgName);
       }
     } catch (err: any) {
       console.error(err);
@@ -264,6 +266,20 @@ export function Login() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1.5 ml-1">Must be at least 6 characters long.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Organization Code <span className="font-normal text-slate-400">(Optional - Leave blank for default)</span></label>
+                    <div className="relative">
+                      <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        value={orgCode}
+                        onChange={(e) => setOrgCode(e.target.value)}
+                        className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white"
+                        placeholder="e.g. ORG-101 or leave blank"
+                      />
+                    </div>
                   </div>
                 </div>
 

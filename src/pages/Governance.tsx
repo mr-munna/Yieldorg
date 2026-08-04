@@ -8,7 +8,7 @@ import { collection, getDocs, deleteDoc, doc, setDoc, onSnapshot } from 'firebas
 
 export function Governance() {
   const [openSection, setOpenSection] = useState<string | null>('structure');
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -39,7 +39,9 @@ export function Governance() {
 - Neutrality: Decisions regarding loan approvals and dispute resolutions must be made objectively, without personal bias or favoritism.`;
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'governance'), (docSnap) => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const docId = orgId === 'org_default' ? 'governance' : `${orgId}_governance`;
+    const unsub = onSnapshot(doc(db, 'settings', docId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setConstitutionText(data.constitution || defaultConstitution);
@@ -48,20 +50,23 @@ export function Governance() {
         setConstitutionText(defaultConstitution);
         setEthicsText(defaultEthics);
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/governance'));
+    }, (error) => handleFirestoreError(error, OperationType.GET, `settings/${docId}`));
     return unsub;
-  }, []);
+  }, [userProfile?.organizationId]);
 
   const handleSaveGovernance = async (type: 'constitution' | 'ethics') => {
     setIsSaving(true);
+    const orgId = userProfile?.organizationId || 'org_default';
+    const docId = orgId === 'org_default' ? 'governance' : `${orgId}_governance`;
     try {
-      await setDoc(doc(db, 'settings', 'governance'), {
-        [type]: type === 'constitution' ? constitutionText : ethicsText
+      await setDoc(doc(db, 'settings', docId), {
+        [type]: type === 'constitution' ? constitutionText : ethicsText,
+        organizationId: orgId
       }, { merge: true });
       if (type === 'constitution') setIsEditingConstitution(false);
       if (type === 'ethics') setIsEditingEthics(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings/governance');
+      handleFirestoreError(error, OperationType.WRITE, `settings/${docId}`);
       alert('Failed to save changes.');
     }
     setIsSaving(false);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Archive, CheckCircle2, AlertCircle, X, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 interface InventoryItem {
@@ -11,6 +11,7 @@ interface InventoryItem {
   description: string;
   status: 'Available' | 'In Use' | 'Archived';
   assignedTo?: string;
+  organizationId?: string;
 }
 
 export function Inventory() {
@@ -24,11 +25,14 @@ export function Inventory() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'inventory'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const unsubscribe = onSnapshot(collection(db, 'inventory'), (snapshot) => {
       const items: InventoryItem[] = [];
       snapshot.forEach((doc) => {
-        items.push({ id: doc.id, ...doc.data() } as InventoryItem);
+        const data = doc.data() as InventoryItem;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          items.push({ id: doc.id, ...data });
+        }
       });
       setInventory(items);
       setLoading(false);
@@ -38,18 +42,20 @@ export function Inventory() {
     });
 
     return unsubscribe;
-  }, []);
+  }, [userProfile?.organizationId]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItem.name) return;
     
     setIsSubmitting(true);
+    const orgId = userProfile?.organizationId || 'org_default';
     try {
       await addDoc(collection(db, 'inventory'), {
         name: newItem.name,
         description: newItem.description,
         status: newItem.status,
+        organizationId: orgId
       });
       setNewItem({ name: '', description: '', status: 'Available' });
       setShowAddModal(false);

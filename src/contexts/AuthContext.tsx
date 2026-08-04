@@ -3,7 +3,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
-interface UserProfile {
+export interface UserProfile {
   uid: string;
   memberId?: string | null;
   name: string;
@@ -13,13 +13,16 @@ interface UserProfile {
   joinDate: string;
   contact: string;
   status: string;
+  organizationId: string;
+  organizationName?: string;
 }
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  bootstrapUser: (name: string, email: string, phone: string) => Promise<void>;
+  bootstrapUser: (name: string, email: string, phone: string, orgCode?: string, orgName?: string) => Promise<void>;
+  switchOrganization: (newOrgId: string, newOrgName?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,13 +45,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         unsubProfile = onSnapshot(docRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
+            const orgId = data.organizationId || 'org_default';
             
             // Auto-upgrade specific emails to Admin if they aren't already
             const email = user.email?.toLowerCase() || '';
             const isAdminEmail = email.startsWith('bijoy.mm112');
             
+            let needsUpdate = false;
+            const updatedProfile = { ...data, organizationId: orgId };
+
+            if (!data.organizationId) {
+              needsUpdate = true;
+            }
+
             if (isAdminEmail && (data.role !== 'Admin' || data.status !== 'Active')) {
-              const updatedProfile = { ...data, role: 'Admin', status: 'Active', memberId: data.memberId || 'YO-ADMIN' };
+              updatedProfile.role = 'Admin';
+              updatedProfile.status = 'Active';
+              updatedProfile.memberId = data.memberId || 'YO-ADMIN';
+              needsUpdate = true;
+            }
+
+            if (needsUpdate) {
               await setDoc(docRef, updatedProfile, { merge: true });
               setUserProfile(updatedProfile);
             } else {
@@ -80,9 +97,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const bootstrapUser = async (name: string, email: string, phone: string) => {
+  const bootstrapUser = async (name: string, email: string, phone: string, orgCode?: string, orgName?: string) => {
     if (!auth.currentUser) return;
     
+    const formattedOrgId = orgCode && orgCode.trim() ? orgCode.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_') : 'org_default';
+
     const profile: UserProfile = {
       uid: auth.currentUser.uid,
       memberId: null,
@@ -92,7 +111,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: 'Member',
       joinDate: new Date().toISOString().split('T')[0],
       contact: email,
-      status: 'Pending'
+      status: 'Pending',
+      organizationId: formattedOrgId,
+      organizationName: orgName?.trim() || (formattedOrgId === 'org_default' ? 'Triangle' : formattedOrgId.toUpperCase())
     };
     try {
       await setDoc(doc(db, 'users', auth.currentUser.uid), profile);
@@ -102,8 +123,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const switchOrganization = async (newOrgId: string, newOrgName?: string) => {
+    if (!auth.currentUser) return;
+    const formattedOrgId = newOrgId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    if (!formattedOrgId) return;
+
+    try {
+      const docRef = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(docRef, {
+        organizationId: formattedOrgId,
+        organizationName: newOrgName?.trim() || (formattedOrgId === 'org_default' ? 'Triangle' : formattedOrgId.toUpperCase())
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, userProfile, loading, bootstrapUser }}>
+    <AuthContext.Provider value={{ currentUser, userProfile, loading, bootstrapUser, switchOrganization }}>
       {!loading && children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { Newspaper, Plus, Trash2, X, Image as ImageIcon, Edit } from 'lucide-react';
 import { formatDateTime } from '../lib/utils';
@@ -14,6 +14,7 @@ interface NewsPost {
   createdAt: any;
   imageUrl?: string;
   imageUrls?: string[];
+  organizationId?: string;
 }
 
 export function NewsFeed() {
@@ -35,18 +36,22 @@ export function NewsFeed() {
   const canPost = ['admin', 'president', 'secretary'].includes(userRole);
 
   useEffect(() => {
+    const orgId = userProfile?.organizationId || 'org_default';
     const q = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
       const newsData: NewsPost[] = [];
       snapshot.forEach((doc) => {
-        newsData.push({ id: doc.id, ...doc.data() } as NewsPost);
+        const data = doc.data() as NewsPost;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          newsData.push({ id: doc.id, ...data });
+        }
       });
       setPosts(newsData);
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'news'));
 
     return () => unsub();
-  }, []);
+  }, [userProfile?.organizationId]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -131,6 +136,7 @@ export function NewsFeed() {
         postData.authorId = userProfile.uid;
         postData.authorName = userProfile.role === 'Admin' ? 'Yield Organization' : userProfile.name;
         postData.createdAt = serverTimestamp();
+        postData.organizationId = userProfile.organizationId || 'org_default';
         await addDoc(collection(db, 'news'), postData);
       }
       

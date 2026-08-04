@@ -69,14 +69,16 @@ export function MemberDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
+    const unsubSettings = onSnapshot(doc(db, 'settings', settingsDocId), (docSnap) => {
       if (docSnap.exists()) {
         setDailyFine(docSnap.data().dailyFineAmount || 0);
         setMonthlyFee(docSnap.data().monthlyFeeAmount || 0);
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
+    }, (error) => handleFirestoreError(error, OperationType.GET, `settings/${settingsDocId}`));
     return unsubSettings;
-  }, []);
+  }, [userProfile?.organizationId]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -85,6 +87,7 @@ export function MemberDashboard() {
       return;
     }
 
+    const orgId = userProfile?.organizationId || 'org_default';
     const q = query(collection(db, 'payments'), where('userId', '==', currentUser.uid));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -100,12 +103,15 @@ export function MemberDashboard() {
       setLoading(false);
     });
 
-    // Fetch Notifications (Fetch all saved broadcast notices permanently)
+    // Fetch Notifications (Fetch all saved broadcast notices permanently for this org)
     const qNotif = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
     const unsubNotifs = onSnapshot(qNotif, (snapshot) => {
       const notifs: any[] = [];
       snapshot.forEach((doc) => {
-        notifs.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          notifs.push({ id: doc.id, ...data });
+        }
       });
       setNotifications(notifs);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
@@ -214,7 +220,8 @@ export function MemberDashboard() {
           paidDate: new Date().toISOString().split('T')[0],
           paymentMethod,
           transactionId,
-          submittedBy: userProfile?.email || userProfile?.name || 'Member'
+          submittedBy: userProfile?.email || userProfile?.name || 'Member',
+          organizationId: userProfile?.organizationId || 'org_default'
         });
       } else {
         await updateDoc(doc(db, 'payments', selectedPayment.id), {

@@ -3,7 +3,7 @@ import { Users, Target, AlertCircle, Calendar, Megaphone, Edit2, Trash2, X, Save
 import { formatCurrency, formatDate, cn, calculateLateFine, getMonthsRange } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, orderBy, limit, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { Payment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { BankLogo } from '../components/BankLogo';
@@ -79,17 +79,20 @@ export function Dashboard() {
   const handleSaveBankInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingBank(true);
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
     try {
-      await setDoc(doc(db, 'settings', 'general'), {
+      await setDoc(doc(db, 'settings', settingsDocId), {
         bankName: bankForm.bankName.trim(),
         accountName: bankForm.accountName.trim(),
         accountNumber: bankForm.accountNumber.trim(),
         branchName: bankForm.branchName.trim(),
-        mobileBankingNotes: bankForm.mobileBankingNotes.trim()
+        mobileBankingNotes: bankForm.mobileBankingNotes.trim(),
+        organizationId: orgId
       }, { merge: true });
       setShowBankModal(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'settings/general');
+      handleFirestoreError(error, OperationType.UPDATE, `settings/${settingsDocId}`);
     } finally {
       setIsSavingBank(false);
     }
@@ -122,8 +125,11 @@ export function Dashboard() {
   };
 
   useEffect(() => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
+
     // Fetch Settings for Monthly Target and Foundation Date
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', settingsDocId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setStats(prev => ({ ...prev, monthlyFeeAmount: data.monthlyFeeAmount || 0 }));
@@ -165,11 +171,13 @@ export function Dashboard() {
       } else {
         setOrgAge('Not Set');
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
+    }, (error) => handleFirestoreError(error, OperationType.GET, `settings/${settingsDocId}`));
 
     // Fetch Users for Total Members and Pending Count
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const allUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allUsers = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((u: any) => orgId === 'org_default' ? (!u.organizationId || u.organizationId === 'org_default') : u.organizationId === orgId);
       setUsersList(allUsers);
       const pendingUsers = allUsers.filter((u: any) => u.status === 'Pending');
       setPendingCount(pendingUsers.length);
@@ -179,7 +187,10 @@ export function Dashboard() {
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
       const pList: Payment[] = [];
       snapshot.forEach((doc) => {
-        pList.push({ id: doc.id, ...doc.data() } as Payment);
+        const data = doc.data() as Payment;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          pList.push({ id: doc.id, ...data });
+        }
       });
       setPaymentsList(pList);
       setLoading(false);
@@ -190,7 +201,10 @@ export function Dashboard() {
     const unsubNotifs = onSnapshot(qNotif, (snapshot) => {
       const notifs: any[] = [];
       snapshot.forEach((doc) => {
-        notifs.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          notifs.push({ id: doc.id, ...data });
+        }
       });
       setNotifications(notifs);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
@@ -201,7 +215,7 @@ export function Dashboard() {
       unsubPayments();
       unsubNotifs();
     };
-  }, []);
+  }, [userProfile?.organizationId]);
 
   // Compute stats dynamically whenever users, payments, monthly fee, daily fine or nowTick changes
   useEffect(() => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { formatCurrency, cn, formatDate, calculateLateFine, getEffectiveDueDate } from '../lib/utils';
 import { Download, Settings, Save, CheckCircle2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Payment, Member } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -75,48 +75,65 @@ export function Finances() {
   };
 
   useEffect(() => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
+
     // Fetch Settings
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', settingsDocId), (docSnap) => {
       if (docSnap.exists()) {
         setDailyFine(docSnap.data().dailyFineAmount || 0);
         setMonthlyFee(docSnap.data().monthlyFeeAmount || 0);
         setMonthlyTarget(docSnap.data().monthlyTarget || 0);
         setFoundationDate(docSnap.data().foundationDate || '');
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
+    }, (error) => handleFirestoreError(error, OperationType.GET, `settings/${settingsDocId}`));
 
     // Fetch Members
     const unsubMembers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const m: Member[] = [];
-      snapshot.forEach(d => m.push({ id: d.id, ...d.data() } as Member));
+      snapshot.forEach(d => {
+        const data = d.data() as Member;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          m.push({ id: d.id, ...data });
+        }
+      });
       setMembers(m);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     // Fetch Payments
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
       const p: Payment[] = [];
-      snapshot.forEach(d => p.push({ id: d.id, ...d.data() } as Payment));
+      snapshot.forEach(d => {
+        const data = d.data() as Payment;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          p.push({ id: d.id, ...data });
+        }
+      });
       setPayments(p);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'payments'));
 
     return () => { unsubSettings(); unsubMembers(); unsubPayments(); };
-  }, []);
+  }, [userProfile?.organizationId]);
 
   const handleSaveSettings = async () => {
     setIsSavingFine(true);
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
     try {
-      await setDoc(doc(db, 'settings', 'general'), { 
+      await setDoc(doc(db, 'settings', settingsDocId), { 
         dailyFineAmount: dailyFine,
         monthlyFeeAmount: monthlyFee,
-        foundationDate: foundationDate
+        foundationDate: foundationDate,
+        organizationId: orgId
       }, { merge: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings/general');
+      handleFirestoreError(error, OperationType.WRITE, `settings/${settingsDocId}`);
     }
     setIsSavingFine(false);
   };
 
   const handleApprovePayment = async (paymentItem: any) => {
+    const orgId = userProfile?.organizationId || 'org_default';
     try {
       const docId = paymentItem.isMock ? `${paymentItem.userId}_${selectedMonth}` : paymentItem.id;
       await setDoc(doc(db, 'payments', docId), {
@@ -129,7 +146,8 @@ export function Finances() {
         paidDate: new Date().toISOString().split('T')[0],
         status: 'Paid',
         fine: paymentItem.dynamicFine || 0,
-        approvedBy: userProfile?.email || userProfile?.name || 'Admin'
+        approvedBy: userProfile?.email || userProfile?.name || 'Admin',
+        organizationId: orgId
       }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `payments/${paymentItem.id}`);

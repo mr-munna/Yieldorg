@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Search, ChevronDown, ChevronUp, UserCheck, Calendar, Coins, CheckCircle2, Filter, ShieldAlert } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, onSnapshot, doc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where } from 'firebase/firestore';
 import { formatCurrency, calculateLateFine, getMonthsRange, cn } from '../lib/utils';
 import { Payment } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PendingDuesOverviewProps {
   usersList?: any[];
@@ -47,6 +48,7 @@ export const PendingDuesOverview: React.FC<PendingDuesOverviewProps> = ({
   dailyFine: propFine,
   title = "Unpaid Dues List"
 }) => {
+  const { userProfile } = useAuth();
   const [localUsers, setLocalUsers] = useState<any[]>([]);
   const [localPayments, setLocalPayments] = useState<Payment[]>([]);
   const [localFee, setLocalFee] = useState<number>(0);
@@ -68,21 +70,31 @@ export const PendingDuesOverview: React.FC<PendingDuesOverviewProps> = ({
       return;
     }
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const settingsDocId = orgId === 'org_default' ? 'general' : `${orgId}_general`;
+
+    const unsubSettings = onSnapshot(doc(db, 'settings', settingsDocId), (docSnap) => {
       if (docSnap.exists()) {
         setLocalFee(docSnap.data().monthlyFeeAmount || 0);
         setLocalFine(docSnap.data().dailyFineAmount || 0);
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/general'));
+    }, (error) => handleFirestoreError(error, OperationType.GET, `settings/${settingsDocId}`));
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const uList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const uList = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((u: any) => orgId === 'org_default' ? (!u.organizationId || u.organizationId === 'org_default') : u.organizationId === orgId);
       setLocalUsers(uList);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
       const pList: Payment[] = [];
-      snapshot.forEach(docSnap => pList.push({ id: docSnap.id, ...docSnap.data() } as Payment));
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Payment;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          pList.push({ id: docSnap.id, ...data });
+        }
+      });
       setLocalPayments(pList);
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'payments'));
@@ -92,7 +104,7 @@ export const PendingDuesOverview: React.FC<PendingDuesOverviewProps> = ({
       unsubUsers();
       unsubPayments();
     };
-  }, [propUsers, propPayments, propFee, propFine]);
+  }, [propUsers, propPayments, propFee, propFine, userProfile?.organizationId]);
 
   const activeUsers = (propUsers || localUsers).filter((u: any) => u.status === 'Active' && u.role !== 'Admin');
   const payments = propPayments || localPayments;

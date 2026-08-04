@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, MoreVertical, CheckCircle, XCircle, X, Megaphone, Trash2 } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Member } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -92,11 +92,14 @@ export function Members() {
   const canBroadcast = ['admin', 'president', 'secretary'].includes(userProfile?.role?.toLowerCase() || '');
 
   useEffect(() => {
-    const q = query(collection(db, 'users'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const orgId = userProfile?.organizationId || 'org_default';
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersData: Member[] = [];
       snapshot.forEach((doc) => {
-        usersData.push({ id: doc.id, ...doc.data() } as Member);
+        const data = doc.data() as Member;
+        if (orgId === 'org_default' ? (!data.organizationId || data.organizationId === 'org_default') : data.organizationId === orgId) {
+          usersData.push({ id: doc.id, ...data });
+        }
       });
       setMembers(usersData);
       setLoading(false);
@@ -106,7 +109,7 @@ export function Members() {
     });
 
     return unsubscribe;
-  }, []);
+  }, [userProfile?.organizationId]);
 
   const handleApprove = async (userId: string) => {
     try {
@@ -181,7 +184,8 @@ export function Members() {
         senderId: userProfile?.uid,
         senderName: userProfile?.name,
         senderRole: userProfile?.role,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        organizationId: userProfile?.organizationId || 'org_default'
       });
       setShowBroadcastModal(false);
       setBroadcastTitle('');
