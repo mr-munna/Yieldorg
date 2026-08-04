@@ -388,8 +388,8 @@ export function Messages() {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-[calc(100dvh-135px)] min-h-[480px] md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
       {/* Sidebar - Member List */}
-      <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col absolute md:relative inset-0 z-10 bg-white transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
-        <div className="p-3.5 md:p-4 border-b border-slate-100 bg-white">
+      <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col min-h-0 absolute md:relative inset-0 z-10 bg-white transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
+        <div className="p-3.5 md:p-4 border-b border-slate-100 bg-white shrink-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg md:text-xl font-bold text-slate-900">Messages</h2>
             <button 
@@ -435,7 +435,7 @@ export function Messages() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+        <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y overscroll-y-contain divide-y divide-slate-50">
           {(filterTab === 'all' || filterTab === 'groups') && sortedGroups.length > 0 && (
             <div className="py-1">
               <h3 className="px-4 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">Groups</h3>
@@ -508,7 +508,7 @@ export function Messages() {
       </div>
 
       {/* Main Chat Area */}
-      <div className={`flex-1 flex flex-col w-full absolute md:relative inset-0 z-20 bg-slate-50 transition-transform duration-300 ${!activeChat ? 'translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
+      <div className={`flex-1 flex flex-col min-h-0 w-full absolute md:relative inset-0 z-20 bg-slate-50 transition-transform duration-300 ${!activeChat ? 'translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
         {activeChat ? (
           <>
             {/* Chat Header */}
@@ -561,7 +561,7 @@ export function Messages() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 bg-slate-50 space-y-3 md:space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y overscroll-y-contain p-3 md:p-4 bg-slate-50 space-y-3 md:space-y-4">
               {messages.map((msg) => {
                 const isMine = msg.senderId === userProfile?.uid;
                 return (
