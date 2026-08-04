@@ -16,9 +16,11 @@ import { signOut } from 'firebase/auth';
 function AppContent() {
   const { currentUser, userProfile, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const initializedUserRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && userProfile.uid && initializedUserRef.current !== userProfile.uid) {
+      initializedUserRef.current = userProfile.uid;
       const userRole = (userProfile.role || '').toLowerCase();
       const isPrivileged = ['admin', 'president', 'secretary', 'treasurer'].includes(userRole);
       if (!isPrivileged) {
@@ -27,7 +29,10 @@ function AppContent() {
         setActiveTab('dashboard');
       }
     }
-  }, [userProfile]);
+    if (!currentUser) {
+      initializedUserRef.current = null;
+    }
+  }, [userProfile, currentUser]);
 
   if (loading) {
     return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
