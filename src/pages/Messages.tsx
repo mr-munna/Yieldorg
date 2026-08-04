@@ -386,7 +386,7 @@ export function Messages() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-full md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-[calc(100dvh-135px)] min-h-[480px] md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
       {/* Sidebar - Member List */}
       <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col absolute md:relative inset-0 z-10 bg-white transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
         <div className="p-3.5 md:p-4 border-b border-slate-100 bg-white">
@@ -512,7 +512,7 @@ export function Messages() {
         {activeChat ? (
           <>
             {/* Chat Header */}
-            <div className="p-3 md:p-4 border-b border-slate-100 flex items-center justify-between bg-white shadow-xs sticky top-0 z-10">
+            <div className="p-2.5 sm:p-3 md:p-4 border-b border-slate-100 flex items-center justify-between bg-white shadow-xs sticky top-0 z-10 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button 
                   type="button"
@@ -619,7 +619,7 @@ export function Messages() {
             </div>
 
             {/* Message Input */}
-            <div className="p-2.5 md:p-4 bg-white border-t border-slate-100">
+            <div className="p-2.5 md:p-4 bg-white border-t border-slate-100 shrink-0">
               {isUploading && (
                 <div className="mb-2 text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-2 animate-pulse">
                   <ImageIcon size={16} />

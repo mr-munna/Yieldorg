@@ -224,17 +224,13 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className={cn(
-        "flex-1 w-full max-w-7xl mx-auto transition-all",
-        activeTab === 'messages' 
-          ? "px-2 py-2 md:p-8 pb-16 md:pb-8 h-[calc(100dvh-104px)] md:h-auto overflow-hidden md:overflow-y-auto" 
-          : "px-3 py-3.5 sm:p-6 md:p-8 pb-20 md:pb-8 overflow-y-auto"
-      )}>
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3 py-3.5 sm:p-6 md:p-8 pb-20 md:pb-8 overflow-y-auto">
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.2 }}
+          className="w-full"
         >
           {children}
         </motion.div>
