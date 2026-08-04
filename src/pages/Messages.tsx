@@ -386,7 +386,7 @@ export function Messages() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-[calc(100vh-80px)] md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-full md:h-[calc(100vh-8rem)] flex overflow-hidden relative">
       {/* Sidebar - Member List */}
       <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col absolute md:relative inset-0 z-10 bg-white transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
         <div className="p-3.5 md:p-4 border-b border-slate-100 bg-white">
