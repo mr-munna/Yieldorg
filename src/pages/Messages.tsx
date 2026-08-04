@@ -515,11 +515,13 @@ export function Messages() {
             <div className="p-3 md:p-4 border-b border-slate-100 flex items-center justify-between bg-white shadow-xs sticky top-0 z-10">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button 
+                  type="button"
                   onClick={() => setActiveChat(null)}
-                  className="md:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 rounded-full transition-colors flex items-center justify-center shrink-0"
-                  aria-label="Back"
+                  className="p-2 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 text-indigo-700 rounded-xl transition-all flex items-center justify-center shrink-0 border border-indigo-200/80 shadow-2xs mr-1 md:hidden"
+                  aria-label="Back to chats list"
+                  title="Back / পেছনে যান"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={20} className="stroke-[2.5]" />
                 </button>
                 <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 font-bold ${activeChat.type === 'group' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
                   {activeChat.type === 'group' ? <Users size={18} /> : (activeChat.name ? activeChat.name.charAt(0).toUpperCase() : <User size={18} />)}
